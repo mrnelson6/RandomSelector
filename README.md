@@ -8,28 +8,37 @@ can watch the randomness happen. Built for drawing scoring-rule modifications fo
 
 ## How a drop works
 
-1. **The cannon** rides its rail to a random spot along the top, swings to a random angle and fires.
-   There is no ceiling, so the ball flies up and arcs back down through a field of pinball bumpers
-   before it reaches the pegs.
+1. **The cannon** rides its rail to a random spot along the top, swings to a random angle and fires —
+   hard. There is no ceiling, so the ball flies far above the board and arcs back down through a
+   field of pinball bumpers before it reaches the pegs. With several balls the cannon roams to a new
+   spot between shots.
 2. **The +/− zones** a third of the way down decide the sign. Each option carries an increment
    (`Passing Yards +0.04`); falling through a `−` zone flips it to `Passing Yards −0.04`. So
-   *N options = 2N outcomes*. The zone segments are re-rolled every drop.
+   *N options = 2N outcomes*. The ball turns green or red to show its sign. The zone segments are
+   re-rolled every drop.
 3. **The category buckets** halfway down funnel the ball into one group — Passing, Rushing, Kicking,
-   Team Defense, … — with full-height walls down to the bins. Each bucket's width is proportional
-   to how many options it holds; their order is shuffled every drop.
+   Team Defense, … — with walls down to the bins. Each bucket's width is proportional to how many
+   options it holds; their order is shuffled every drop. The walls have a few openings, so a ball
+   can occasionally slip into the neighbouring lane.
 4. **The bins** at the bottom, one per option, shuffled every drop (within their bucket).
 
 Sprinkled through the peg field (about 1 in 22 pegs, placed by the seed) are **special pegs**:
 
 | Peg | Look | Effect |
 |---|---|---|
-| Super bouncy | pink with a pulsing halo | restitution 1.6 — the ball leaves faster than it arrived |
+| Super bouncy | pink with a pulsing halo | fires the ball away at high speed on contact, whatever speed it arrived with |
 | Boulder | big grey disc | a wide deflector |
 | Spinner | cyan rotating cross | bats the ball sideways |
 
-The category walls carry large round **bumps** on alternating rows, and the pegs next to a wall are
-pushed outward, so a ball can neither slide down a wall nor wedge between wall and peg. Peg and ball
-radii are chosen so there is no straight vertical channel anywhere in the lattice.
+The category walls carry large round **bumps** on alternating rows — about a third of them are
+super-bouncy **wall bumpers** that blast the ball back into the lane — and the pegs next to a wall
+are pushed outward. Together with the openings this means a ball can neither slide down a wall nor
+wedge between wall and peg, and there is no straight vertical channel anywhere in the lattice.
+
+**Sound** is synthesised in the browser (no audio files): cannon, peg clicks, boings, the sign
+chime (rising for +, falling for −), a whoosh entering a lane, and a fanfare at the end. The
+🔊 button mutes it; browsers only allow audio after a click, so auto-dropped links are silent until
+you press something.
 
 The camera follows the ball; the **"Under the ball"** panel lists the seven bins directly beneath
 it, with the sign applied once it's known. Drag to pan and scroll to zoom whenever you like.

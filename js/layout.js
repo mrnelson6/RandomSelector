@@ -77,9 +77,57 @@
     function belowCategoryBand(r) { return hasCategories && r > categoryRow; }
     function nearWall(c) { return walls.has(c) || walls.has(c + 1) || walls.has(c - 1); }
 
-    // ---- Special pegs (assigned per run from the seeded RNG) ----
-    const specials = new Map(); // key(r, c) -> { kind, phase, dir }
+    // ---- Per-run randomness: special pegs, wall openings, wall bumper kinds ----
+    const specials = new Map();   // key(r, c) -> { kind, phase, dir }
+    const wallGaps = new Map();   // wall col -> Set of rows where the wall is open
+    const wallBouncy = new Set(); // key(r, col) of wall bumps that are super-bouncy
     const key = (r, c) => r * (n + 2) + c;
+
+    function randomize(rng) {
+      assignSpecials(rng);
+      wallGaps.clear();
+      wallBouncy.clear();
+      if (!hasCategories) return;
+      for (const col of walls) {
+        const gaps = new Set();
+        let r = categoryRow + 3;
+        while (true) {
+          r += rng.int(cfg.wallGapEvery[0], cfg.wallGapEvery[1]);
+          if (r + cfg.wallGapRows > rows - 4) break;
+          for (let g = 0; g < cfg.wallGapRows; g++) gaps.add(r + g);
+        }
+        wallGaps.set(col, gaps);
+        for (let rr = categoryRow + 1; rr < rows; rr++) {
+          if (rowOffset(rr) === 0 && !gaps.has(rr) && rng.next() < cfg.wallBouncyFraction) wallBouncy.add(key(rr, col));
+        }
+      }
+    }
+    function wallOpenAt(col, r) {
+      const g = wallGaps.get(col);
+      return !!(g && g.has(r));
+    }
+    // Solid pieces of the wall at `col`, as [{ y0, y1 }] from the band down to the floor.
+    function wallSegments(col) {
+      const segs = [];
+      const gaps = wallGaps.get(col);
+      let y0 = categoryTop;
+      if (gaps) {
+        const sorted = [...gaps].sort((a, b) => a - b);
+        let i = 0;
+        while (i < sorted.length) {
+          let j = i;
+          while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+          const gy0 = rowY(sorted[i]) - cfg.rowHeight / 2;
+          const gy1 = rowY(sorted[j]) + cfg.rowHeight / 2;
+          if (gy0 > y0) segs.push({ y0, y1: gy0 });
+          y0 = gy1;
+          i = j + 1;
+        }
+      }
+      if (binBottom > y0) segs.push({ y0, y1: binBottom });
+      return segs;
+    }
+
     function assignSpecials(rng) {
       specials.clear();
       const kinds = Object.entries(cfg.specials);
@@ -116,8 +164,13 @@
       const off = rowOffset(r);
       let x = off + c * w;
       if (off === 0) {
-        // Aligned row: a peg on a wall line becomes a big round bump on the wall.
-        if (belowCategoryBand(r) && walls.has(c)) return { x, y, r: cfg.wallBumpRadius, kind: 'bump' };
+        // Aligned row on a wall line: a big round bump (or a super-bouncy wall
+        // bumper) on the wall; in an opening the wall is absent, so a plain peg.
+        if (belowCategoryBand(r) && walls.has(c)) {
+          if (wallOpenAt(c, r)) return { x, y, r: cfg.pegRadius, kind: 'peg' };
+          if (wallBouncy.has(key(r, c))) return { x, y, r: cfg.wallBouncyRadius, kind: 'bouncy' };
+          return { x, y, r: cfg.wallBumpRadius, kind: 'bump' };
+        }
       } else if (belowCategoryBand(r)) {
         // Offset row: pegs next to a wall move outwards so a ball can't wedge
         // between wall and peg, and can't fall straight down beside the wall.
@@ -216,7 +269,7 @@
       zoneRow, zoneY, zoneTop: zoneY - cfg.zoneHeight / 2, zoneBottom: zoneY + cfg.zoneHeight / 2,
       categoryRow, categoryY, categoryTop, categoryBandH, categoryBottom: categoryTop + categoryBandH,
       bumpers, bumpersIn,
-      rowOffset, rowY, rowHasPegs, pegExists, pegAt, assignSpecials, specials, pegCountInRow, pegX, pegColRange, rowRange,
+      rowOffset, rowY, rowHasPegs, pegExists, pegAt, randomize, assignSpecials, specials, wallSegments, wallOpenAt, pegCountInRow, pegX, pegColRange, rowRange,
       binIndexAt, binRect, makeZones, zoneAt, categoryAt, launchPoint, launchShot, muzzle,
     };
   }

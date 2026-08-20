@@ -53,6 +53,7 @@ button.primary {
 button.primary:hover { background: #ffc233; }
 button.small { padding: 2px 8px; font-size: 12px; border-radius: 6px; }
 button:disabled { opacity: 0.5; cursor: default; }
+button.muted { opacity: 0.6; text-decoration: line-through; }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -86,18 +87,6 @@ code {
 .hud-right strong { color: var(--text); }
 .seed-row { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
 
-.sign-indicator {
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  display: grid; place-items: center;
-  font-size: 34px; font-weight: 800;
-  background: var(--panel);
-  border: 2px solid var(--panel-border);
-  color: var(--muted);
-  transition: all 0.25s;
-}
-.sign-indicator[data-sign="+"] { background: var(--plus); color: #062b17; border-color: var(--plus); box-shadow: 0 0 24px var(--plus); }
-.sign-indicator[data-sign="-"] { background: var(--minus); color: #3a0410; border-color: var(--minus); box-shadow: 0 0 24px var(--minus); }
 
 /* Result banner */
 #result {
@@ -174,7 +163,6 @@ code {
 
 @media (max-width: 640px) {
   .hud-right { display: none; }
-  .sign-indicator { width: 44px; height: 44px; font-size: 26px; }
 }
 
 /* Settings grid */

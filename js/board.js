@@ -18,7 +18,7 @@
 
     // Side walls (extended far above the board so a cannon shot can fly up
     // without escaping sideways — there is deliberately no ceiling) and floor.
-    const sky = 6000;
+    const sky = 30000;
     Composite.add(statics, [
       Bodies.rectangle(-t / 2, (layout.height - sky) / 2, t, layout.height + sky, { ...staticOpts, label: 'wall' }),
       Bodies.rectangle(layout.width + t / 2, (layout.height - sky) / 2, t, layout.height + sky, { ...staticOpts, label: 'wall' }),
@@ -36,14 +36,19 @@
     }
     Composite.add(statics, dividers);
 
-    // Category walls: from the category band down to the bin floor
+    // Category walls: from the category band down to the bin floor, in solid
+    // segments with openings between them.
     if (layout.hasCategories) {
-      const wallH = layout.binBottom - layout.categoryTop;
-      const catWalls = [...layout.walls].map(col => Bodies.rectangle(
-        col * cfg.binWidth, layout.categoryTop + wallH / 2,
-        cfg.categoryWallWidth, wallH,
-        { ...staticOpts, label: 'catwall', chamfer: { radius: cfg.categoryWallWidth / 2 } }
-      ));
+      const catWalls = [];
+      for (const col of layout.walls) {
+        for (const seg of layout.wallSegments(col)) {
+          catWalls.push(Bodies.rectangle(
+            col * cfg.binWidth, (seg.y0 + seg.y1) / 2,
+            cfg.categoryWallWidth, seg.y1 - seg.y0,
+            { ...staticOpts, label: 'catwall', chamfer: { radius: cfg.categoryWallWidth / 2 } }
+          ));
+        }
+      }
       Composite.add(statics, catWalls);
     }
 
@@ -81,7 +86,7 @@
           return body;
         }
         case 'bump':
-          return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: 'bump', restitution: 0.5 });
+          return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: 'bump', restitution: 0.8, friction: 0 });
         default:
           return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: peg.kind, restitution: 0.4 });
       }

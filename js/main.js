@@ -16,6 +16,9 @@
   });
   game.cfg = cfg;
   game.camera = camera;
+  const sfx = Sfx.create();
+  game.sfx = (name, data) => sfx.play(name, data);
+  game.audio = sfx;
   renderer.resize();
   ui = UI.create(game);
   camera.snap();
@@ -33,7 +36,7 @@
     acc += dt;
     let steps = 0;
     while (acc >= STEP && steps < 5) {
-      Matter.Engine.update(game.engine, STEP);
+      for (let i = 0; i < cfg.substeps; i++) Matter.Engine.update(game.engine, STEP / cfg.substeps);
       game.afterStep(STEP / 1000);
       acc -= STEP;
       steps++;
@@ -51,5 +54,5 @@
   requestAnimationFrame(frame);
 
   // Handy for poking at things from the console.
-  window.plinko = { game, camera, cfg, ui };
+  window.plinko = { game, camera, cfg, ui, sfx };
 })();

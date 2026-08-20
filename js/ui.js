@@ -62,8 +62,7 @@
   function create(game) {
     const byId = id => document.getElementById(id);
     const els = {
-      drop: byId('drop-btn'), settings: byId('settings-btn'), overview: byId('overview-btn'),
-      sign: byId('sign-indicator'),
+      drop: byId('drop-btn'), settings: byId('settings-btn'), overview: byId('overview-btn'), sound: byId('sound-btn'),
       statOptions: byId('stat-options'), statSigns: byId('stat-signs'), statOutcomes: byId('stat-outcomes'),
       seed: byId('seed-display'), copy: byId('copy-link-btn'),
       pip: byId('pip'), pipList: byId('pip-list'), pipSign: byId('pip-sign'), pipCategory: byId('pip-category'),
@@ -106,10 +105,6 @@
       els.statSigns.textContent = signs ? '× 2 signs' : '';
       els.statOutcomes.textContent = signs ? n * 2 : n;
     }
-    function setSignIndicator(sign) {
-      els.sign.dataset.sign = sign || '';
-      els.sign.textContent = sign === '+' ? '+' : sign === '-' ? MINUS : '?';
-    }
 
     function applyOptions(options) {
       game.setOptions(options);
@@ -121,8 +116,6 @@
       game.prepare(seed);
       syncUrl(seed);
       els.seed.textContent = seed;
-      setSignIndicator(null);
-      els.sign.classList.toggle('hidden', !game.settings.signs);
       els.result.classList.add('hidden');
       els.pip.classList.add('hidden');
     }
@@ -142,9 +135,7 @@
       els.pip.classList.toggle('hidden', state !== 'falling' && state !== 'landed');
     }
 
-    function onSign(sign, zone, ball) {
-      if (game.balls.length === 1 || ball === game.focusBall()) setSignIndicator(sign);
-    }
+    function onSign() { /* the ball itself changes colour; nothing to do in the DOM */ }
 
     // ---- PIP ----
     const pipItems = [];
@@ -217,8 +208,19 @@
     }
 
     // ---- Buttons ----
-    els.drop.addEventListener('click', () => game.drop());
-    els.again.addEventListener('click', dropAgain);
+    const audio = () => game.audio;
+    function refreshSoundButton() {
+      const on = audio() && audio().enabled;
+      els.sound.innerHTML = (on ? '&#128266;' : '&#128263;') + ' Sound';
+      els.sound.classList.toggle('muted', !on);
+    }
+    els.sound.addEventListener('click', () => {
+      audio().setEnabled(!audio().enabled);
+      refreshSoundButton();
+      if (audio().enabled) audio().play('click');
+    });
+    els.drop.addEventListener('click', () => { audio() && audio().unlock(); game.drop(); });
+    els.again.addEventListener('click', () => { audio() && audio().unlock(); dropAgain(); });
     els.closeResult.addEventListener('click', () => els.result.classList.add('hidden'));
     els.overview.addEventListener('click', () => game.showOverview());
     els.copy.addEventListener('click', async () => {
@@ -237,6 +239,7 @@
       const typing = tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT';
       if (e.code === 'Space' && !typing) {
         e.preventDefault();
+        audio() && audio().unlock();
         if (game.state === 'ready') game.drop();
         else if (game.state === 'landed') dropAgain();
       }
@@ -318,6 +321,7 @@
     applyOptions(options);
     newRun(seedFromUrl());
     if (autodrop) setTimeout(() => game.drop(), 600);
+    refreshSoundButton();
 
     return { onState, onSign, onResult, newRun, updatePip };
   }

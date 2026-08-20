@@ -11,13 +11,17 @@ window.CONFIG = {
   dividerWidth: 6,
   wallThickness: 60,
   categoryWallWidth: 6,
-  wallBumpRadius: 16,    // round bumps on the category walls so balls can't slide down them
+  wallBumpRadius: 28,    // big round bumps on the category walls: close the corridor beside the wall
+  wallBouncyRadius: 22,  // some wall bumps are super-bouncy "wall bumpers" instead
+  wallBouncyFraction: 0.35,
   wallPegShift: 52,      // offset-row pegs next to a wall move out to this distance from it
+  wallGapRows: 2,        // height of an opening in a category wall, in peg rows
+  wallGapEvery: [5, 10], // rows between openings (random in this range)
 
   // Special pegs sprinkled across the board (seeded per run)
-  specialPegFraction: 0.045,
+  specialPegFraction: 0.09,
   specials: {
-    bouncy:  { weight: 0.5, radius: 10, restitution: 1.6 },   // super bouncy
+    bouncy:  { weight: 0.5, radius: 10, restitution: 1.6, kick: 32 }, // fires the ball away at `kick` px/step on contact
     big:     { weight: 0.3, radius: 20 },                     // boulder
     spinner: { weight: 0.2, arm: 24, thickness: 6, speed: 2.6 }, // rotating cross, rad/s
   },
@@ -26,11 +30,12 @@ window.CONFIG = {
   topPadding: 760,       // height of the launch area
   railY: 150,            // cannon rail
   barrelLength: 72,
-  cannonMinSpeed: 9,
-  cannonMaxSpeed: 16,
+  cannonMinSpeed: 22,
+  cannonMaxSpeed: 36,
   cannonMaxAngle: 62,    // degrees either side of straight up
   aimSeconds: 1.6,       // carriage travel + aim time before the first shot
-  shotInterval: 0.9,     // seconds between balls when dropping several
+  shotInterval: 1.3,     // seconds between balls when dropping several (the cannon moves between shots)
+  cannonRoamBins: 12,    // how far (in bins) the cannon may travel between shots
   bumperRows: [400, 560],
   bumperSpacingBins: 5,
   bumperRadius: 26,
@@ -44,6 +49,7 @@ window.CONFIG = {
   zoneMaxBins: 8,
 
   // Physics
+  substeps: 3,           // physics sub-steps per 60 Hz frame (fast balls must not skip through pegs)
   gravity: 1.0,
   ballRestitution: 0.45,
   ballFriction: 0.02,

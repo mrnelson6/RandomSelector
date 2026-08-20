@@ -83,7 +83,7 @@
       spinner:{ fill: '#4ddfff', ring: null },
     };
 
-    function drawPegs({ layout, cfg, camera, time }, view) {
+    function drawPegs({ layout, cfg, camera, time, pegFlashes }, view) {
       const zoom = camera.zoom;
       const [r0, r1] = layout.rowRange(view.y0, view.y1);
       if (r1 < r0) return;
@@ -121,11 +121,14 @@
           ctx.restore();
           continue;
         }
-        const radius = Math.max(peg.r, minR);
+        let radius = Math.max(peg.r, minR);
+        const hitAgo = pegFlashes ? time - (pegFlashes.get(peg.x + ',' + peg.y) ?? -1e9) : 1e9;
         if (peg.kind === 'bouncy' && zoom > 0.2) {
-          // pulsing halo
-          ctx.fillStyle = style.ring;
-          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius * (1.6 + 0.3 * Math.sin(time * 6 + peg.x)), 0, Math.PI * 2); ctx.fill();
+          // pulsing halo, blown up briefly when the peg fires
+          const burst = hitAgo < 0.4 ? (1 - hitAgo / 0.4) * 4 : 0;
+          ctx.fillStyle = burst ? 'rgba(255, 220, 250, ' + (0.7 * (1 - hitAgo / 0.4)).toFixed(2) + ')' : style.ring;
+          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius * (1.6 + 0.3 * Math.sin(time * 6 + peg.x) + burst), 0, Math.PI * 2); ctx.fill();
+          if (hitAgo < 0.25) radius *= 1.5 - hitAgo * 2;
         }
         ctx.fillStyle = style.fill;
         ctx.beginPath(); ctx.arc(peg.x, peg.y, radius, 0, Math.PI * 2); ctx.fill();
@@ -209,13 +212,16 @@
           }
         }
       }
-      // Walls
+      // Walls (solid segments; the openings between them let balls change lane)
       ctx.fillStyle = COLORS.catWall;
       const ww = Math.max(cfg.categoryWallWidth, 1.5 / zoom);
       for (const col of layout.walls) {
         const x = col * w;
         if (x < view.x0 - ww || x > view.x1 + ww) continue;
-        ctx.fillRect(x - ww / 2, top, ww, layout.binBottom - top);
+        for (const seg of layout.wallSegments(col)) {
+          if (seg.y1 < view.y0 || seg.y0 > view.y1) continue;
+          ctx.fillRect(x - ww / 2, seg.y0, ww, seg.y1 - seg.y0);
+        }
       }
     }
 
@@ -326,24 +332,44 @@
       ctx.restore();
     }
 
-    function drawBalls({ cfg, balls }) {
+    // The ball takes the colour of its sign once it has one.
+    function ballColor(ball) {
+      return ball.sign === '+' ? COLORS.plus : ball.sign === '-' ? COLORS.minus : COLORS.ball;
+    }
+
+    function drawBalls({ cfg, balls, time }) {
       const r = cfg.ballRadius;
       for (const ball of balls) {
+        const color = ballColor(ball);
         const trail = ball.landed ? [] : ball.trail;
         for (let i = 0; i < trail.length; i++) {
           const p = trail[i];
           const a = (i + 1) / trail.length;
           ctx.globalAlpha = a * 0.35;
-          ctx.fillStyle = COLORS.ball;
+          ctx.fillStyle = color;
           ctx.beginPath(); ctx.arc(p.x, p.y, r * (0.4 + 0.5 * a), 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 1;
         const { x, y } = ball.body.position;
-        ctx.fillStyle = COLORS.ball;
+        // A ring flashes out when the sign was just set
+        const since = ball.signAt != null ? time - ball.signAt : 1e9;
+        if (since < 0.6) {
+          ctx.globalAlpha = 1 - since / 0.6;
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = color;
+          ctx.beginPath(); ctx.arc(x, y, r + since * 90, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = color;
         ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = COLORS.ballCore;
         ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.35, 0, Math.PI * 2); ctx.fill();
-        if (balls.length > 1) {
+        if (ball.sign && !ball.landed) {
+          ctx.fillStyle = '#0f1117';
+          ctx.font = `900 ${r * 1.6}px system-ui, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(ball.sign === '+' ? '+' : '−', x, y + 1);
+        } else if (balls.length > 1) {
           ctx.fillStyle = '#1a1200';
           ctx.font = `800 ${r * 1.3}px system-ui, sans-serif`;
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

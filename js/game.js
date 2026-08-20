@@ -43,17 +43,20 @@
       shots: [],
       balls: [],
       results: [],
-      cannon: { x: 0, angle: 0, targetAngle: 0, flash: 0, fromX: 0 },
+      cannon: { x: 0, angle: 0, targetAngle: 0, targetX: 0, flash: 0, fromX: 0 },
+      sfx: null, // (name, data) => void, set by main.js
       aimTimer: 0,
       shotTimer: 0,
       time: 0,
       nudges: 0, // anti-stuck kicks this run (diagnostic)
+      pegFlashes: new Map(), // "x,y" -> time a special peg was last hit (for the renderer)
     };
 
     function setState(s) {
       game.state = s;
       onState && onState(s, game);
     }
+    function sfx(name, data) { game.sfx && game.sfx(name, data); }
 
     function setOptions(options) {
       game.options = options.map(o => ({
@@ -77,15 +80,26 @@
       const settings = { ...game.settings, categories: game.settings.categories && hasCategoryData() };
       game.arrangement = Layout.arrange(game.options, game.rng, settings);
       game.layout = Layout.build(game.arrangement.n, cfg, settings, game.arrangement.wallCols);
-      game.layout.assignSpecials(game.rng);
+      game.layout.randomize(game.rng);
       game.zones = game.layout.makeZones(game.rng);
       game.launch = game.layout.launchPoint(game.rng);
-      game.shots = Array.from({ length: game.settings.balls }, () => game.layout.launchShot(game.rng));
+      // Each shot has its own cannon position: the cannon roams between shots.
+      game.shots = [];
+      let sx = game.launch.x;
+      for (let i = 0; i < game.settings.balls; i++) {
+        if (i > 0) {
+          const roam = cfg.cannonRoamBins * cfg.binWidth;
+          const margin = cfg.binWidth * 1.5;
+          sx = Math.min(game.layout.width - margin, Math.max(margin, sx + game.rng.range(-roam, roam)));
+        }
+        game.shots.push({ ...game.layout.launchShot(game.rng), x: sx });
+      }
       game.board = Board.create(engine, game.layout, cfg, game.zones);
       game.balls = [];
       game.results = [];
       game.nudges = 0;
-      game.cannon.x = game.cannon.fromX = game.layout.width / 2;
+      game.pegFlashes.clear();
+      game.cannon.x = game.cannon.fromX = game.cannon.targetX = game.layout.width / 2;
       game.cannon.angle = game.cannon.targetAngle = 0;
       game.cannon.flash = 0;
       camera.manual = false;
@@ -104,6 +118,7 @@
       camera.posRate = 2.4; camera.zoomRate = 2.4;
       camera.followPoint(game.launch.x, game.launch.y + 120, followZoom(), game.layout);
       game.cannon.fromX = game.cannon.x;
+      game.cannon.targetX = game.shots[0].x;
       game.cannon.targetAngle = game.shots[0].angle;
       game.aimTimer = 0;
       setState('aiming');
@@ -111,17 +126,21 @@
 
     function fire() {
       const shot = game.shots[game.balls.length];
-      const m = game.layout.muzzle(game.launch.x, shot.angle);
-      const body = game.board.spawnBall(m.x, m.y,
-        Math.sin(shot.angle) * shot.speed, -Math.cos(shot.angle) * shot.speed);
+      // Fire from wherever the barrel actually is and points right now.
+      const a = game.cannon.angle;
+      const m = game.layout.muzzle(game.cannon.x, a);
+      const body = game.board.spawnBall(m.x, m.y, Math.sin(a) * shot.speed, -Math.cos(a) * shot.speed);
       game.balls.push({
         body, index: game.balls.length, shot,
         sign: null, zone: null, landed: false, result: null,
         trail: [], restCount: 0, binTime: 0, stuckCount: 0,
       });
       game.cannon.flash = 0.25;
+      sfx('fire');
       if (game.balls.length < game.shots.length) {
-        game.cannon.targetAngle = game.shots[game.balls.length].angle;
+        const next = game.shots[game.balls.length];
+        game.cannon.targetAngle = next.angle;
+        game.cannon.targetX = next.x;
         game.shotTimer = cfg.shotInterval;
       }
       if (game.state !== 'falling') {
@@ -136,15 +155,33 @@
         let ballBody = null, other = null;
         if (pair.bodyA.label === 'ball') { ballBody = pair.bodyA; other = pair.bodyB; }
         else if (pair.bodyB.label === 'ball') { ballBody = pair.bodyB; other = pair.bodyA; }
-        if (!ballBody || other.label !== 'zone') continue;
-        const ball = game.balls.find(b => b.body === ballBody);
-        if (ball && !ball.sign) captureSign(ball, game.layout.zoneAt(game.zones, ballBody.position.x));
+        if (!ballBody) continue;
+        const label = other.label;
+        if (label === 'peg') sfx('peg', { speed: ballBody.speed });
+        else if (label === 'big' || label === 'spinner' || label === 'bumper' || label === 'bouncy') sfx(label);
+        else if (label === 'bump' || label === 'catwall' || label === 'wall') sfx('wall');
+        else if (label === 'divider' || label === 'floor') sfx('divider');
+        if (label === 'zone') {
+          const ball = game.balls.find(b => b.body === ballBody);
+          if (ball && !ball.sign) captureSign(ball, game.layout.zoneAt(game.zones, ballBody.position.x));
+        } else if (other.label === 'bouncy') {
+          // Super-bouncy peg: fire the ball straight away from the peg centre,
+          // much faster than it arrived.
+          const dx = ballBody.position.x - other.position.x;
+          const dy = ballBody.position.y - other.position.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const k = cfg.specials.bouncy.kick;
+          Body.setVelocity(ballBody, { x: dx / len * k, y: dy / len * k });
+          game.pegFlashes.set(other.position.x + ',' + other.position.y, game.time);
+        }
       }
     });
 
     function captureSign(ball, zone) {
       ball.sign = zone.sign;
       ball.zone = zone;
+      ball.signAt = game.time;
+      sfx('zone', { sign: zone.sign });
       onSign && onSign(zone.sign, zone, ball);
     }
 
@@ -159,7 +196,7 @@
       if (game.state === 'aiming') {
         game.aimTimer += dt;
         const t = Math.min(1, game.aimTimer / cfg.aimSeconds);
-        c.x = c.fromX + (game.launch.x - c.fromX) * ease(t);
+        c.x = c.fromX + (c.targetX - c.fromX) * ease(t);
         const at = Math.max(0, (t - 0.55) / 0.45);
         c.angle = c.targetAngle * ease(at);
         if (t >= 1) fire();
@@ -167,8 +204,9 @@
       }
       if (game.state !== 'falling') return;
 
-      // Swing towards the next shot and fire on schedule.
+      // Travel and swing towards the next shot, and fire on schedule.
       c.angle += (c.targetAngle - c.angle) * Math.min(1, dt * 6);
+      c.x += (c.targetX - c.x) * Math.min(1, dt * 4);
       if (game.balls.length < game.shots.length) {
         game.shotTimer -= dt;
         if (game.shotTimer <= 0) fire();
@@ -188,6 +226,11 @@
         // Belt and braces: if we somehow passed the zone row without a contact event.
         if (layout.hasZones && !ball.sign && p.y > layout.zoneBottom + cfg.ballRadius) {
           captureSign(ball, layout.zoneAt(game.zones, p.x));
+        }
+
+        if (layout.hasCategories && !ball.inLane && p.y > layout.categoryBottom + cfg.ballRadius) {
+          ball.inLane = true;
+          sfx('category');
         }
 
         const speed = body.speed;
@@ -223,7 +266,9 @@
         text: formatResult(option, ball.sign, game.layout.hasZones),
       };
       game.results.push(ball.result);
+      sfx('land');
       if (game.balls.length === game.shots.length && game.balls.every(b => b.landed)) {
+        sfx('done');
         const b = game.layout.binRect(bin);
         camera.manual = false;
         camera.posRate = 3; camera.zoomRate = 2;
@@ -278,6 +323,8 @@
       if (game.state === 'falling') {
         const active = game.balls.filter(b => !b.landed);
         const pts = active.map(b => b.body.position);
+        // Keep the cannon in frame while it still has balls to fire
+        if (game.balls.length < game.shots.length) pts.push({ x: game.cannon.x, y: cfg.railY });
         if (pts.length) camera.followPoints(pts, followZoom(), 0.3, game.layout);
       }
     }
