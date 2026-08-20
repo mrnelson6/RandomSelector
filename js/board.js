@@ -1,6 +1,7 @@
-// Builds Matter.js bodies from the layout. Walls, dividers, floor and zone
-// sensors always exist; pegs are only given physics bodies in a window of
-// columns around the ball (the renderer draws pegs from the layout instead).
+// Builds Matter.js bodies from the layout. Walls, ceiling, floor, dividers,
+// bumpers, category walls and zone sensors always exist; pegs are only given
+// physics bodies in a window of columns around the balls (the renderer draws
+// pegs from the layout instead).
 (function (global) {
   'use strict';
   const { Bodies, Composite, Body } = Matter;
@@ -9,15 +10,17 @@
     const world = engine.world;
     const statics = Composite.create({ label: 'statics' });
     const pegs = Composite.create({ label: 'pegs' });
-    Composite.add(world, [statics, pegs]);
+    const ballsComp = Composite.create({ label: 'balls' });
+    Composite.add(world, [statics, pegs, ballsComp]);
 
     const t = cfg.wallThickness;
     const staticOpts = { isStatic: true, friction: 0.05, restitution: 0.3 };
 
-    // Walls and floor
+    // Walls, ceiling and floor
     Composite.add(statics, [
-      Bodies.rectangle(-t / 2, layout.height / 2 - 1000, t, layout.height + 4000, { ...staticOpts, label: 'wall' }),
-      Bodies.rectangle(layout.width + t / 2, layout.height / 2 - 1000, t, layout.height + 4000, { ...staticOpts, label: 'wall' }),
+      Bodies.rectangle(-t / 2, layout.height / 2, t, layout.height + 2 * t, { ...staticOpts, label: 'wall' }),
+      Bodies.rectangle(layout.width + t / 2, layout.height / 2, t, layout.height + 2 * t, { ...staticOpts, label: 'wall' }),
+      Bodies.rectangle(layout.width / 2, -t / 2, layout.width + 2 * t, t, { ...staticOpts, label: 'ceiling' }),
       Bodies.rectangle(layout.width / 2, layout.binBottom + t / 2, layout.width + 2 * t, t, { ...staticOpts, label: 'floor' }),
     ]);
 
@@ -31,6 +34,22 @@
       ));
     }
     Composite.add(statics, dividers);
+
+    // Category walls: from the category band down to the bin floor
+    if (layout.hasCategories) {
+      const wallH = layout.binBottom - layout.categoryTop;
+      const catWalls = [...layout.walls].map(col => Bodies.rectangle(
+        col * cfg.binWidth, layout.categoryTop + wallH / 2,
+        cfg.categoryWallWidth, wallH,
+        { ...staticOpts, label: 'catwall', chamfer: { radius: cfg.categoryWallWidth / 2 } }
+      ));
+      Composite.add(statics, catWalls);
+    }
+
+    // Pinball bumpers in the launch area
+    Composite.add(statics, layout.bumpers.map(b => Bodies.circle(b.x, b.y, b.r, {
+      isStatic: true, label: 'bumper', restitution: cfg.bumperRestitution, friction: 0,
+    })));
 
     // Zone sensors
     const zoneBodies = zones.map(z => {
@@ -48,13 +67,12 @@
 
     function pegBodiesForCol(k) {
       const out = [];
-      for (let r = 0; r < cfg.pegRows; r++) {
-        if (!layout.rowHasPegs(r)) continue;
+      for (let r = 0; r < layout.rows; r++) {
         const count = layout.pegCountInRow(r);
         const cols = [k];
         if (k === layout.n - 1 && count === layout.n + 1) cols.push(layout.n); // right-edge peg
         for (const c of cols) {
-          if (c < 0 || c >= count) continue;
+          if (c < 0 || c >= count || !layout.pegExists(r, c)) continue;
           out.push(Bodies.circle(layout.pegX(r, c), layout.rowY(r), cfg.pegRadius, {
             ...staticOpts, label: 'peg', restitution: 0.4,
           }));
@@ -63,16 +81,20 @@
       return out;
     }
 
-    function setPegWindow(centerCol) {
-      const lo = Math.max(0, centerCol - cfg.pegWindowCols);
-      const hi = Math.min(layout.n - 1, centerCol + cfg.pegWindowCols);
-      for (const [k, bodies] of loadedCols) {
-        if (k < lo || k > hi) {
-          Composite.remove(pegs, bodies);
-          loadedCols.delete(k);
-        }
+    let lastKey = '';
+    function updatePegWindow(xs) {
+      const centers = xs.map(x => layout.binIndexAt(x));
+      const key = centers.join(',');
+      if (key === lastKey) return;
+      lastKey = key;
+      const wanted = new Set();
+      for (const c of centers) {
+        for (let k = Math.max(0, c - cfg.pegWindowCols); k <= Math.min(layout.n - 1, c + cfg.pegWindowCols); k++) wanted.add(k);
       }
-      for (let k = lo; k <= hi; k++) {
+      for (const [k, bodies] of loadedCols) {
+        if (!wanted.has(k)) { Composite.remove(pegs, bodies); loadedCols.delete(k); }
+      }
+      for (const k of wanted) {
         if (!loadedCols.has(k)) {
           const bodies = pegBodiesForCol(k);
           Composite.add(pegs, bodies);
@@ -81,46 +103,34 @@
       }
     }
 
-    let lastCenterCol = null;
-    function updatePegWindow(x) {
-      const col = layout.binIndexAt(x);
-      if (col !== lastCenterCol) {
-        lastCenterCol = col;
-        setPegWindow(col);
-      }
-    }
-
-    // ---- Ball ----------------------------------------------------------
-    let ball = null;
-    function spawnBall(x, y, vx) {
-      removeBall();
-      ball = Bodies.circle(x, y, cfg.ballRadius, {
+    // ---- Balls ---------------------------------------------------------
+    const balls = [];
+    function spawnBall(x, y, vx, vy) {
+      const ball = Bodies.circle(x, y, cfg.ballRadius, {
         label: 'ball',
         restitution: cfg.ballRestitution,
         friction: cfg.ballFriction,
         frictionAir: cfg.ballFrictionAir,
         density: 0.002,
       });
-      Body.setVelocity(ball, { x: vx, y: 0 });
-      updatePegWindow(x);
-      Composite.add(world, ball);
+      Body.setVelocity(ball, { x: vx, y: vy });
+      balls.push(ball);
+      updatePegWindow(balls.map(b => b.position.x));
+      Composite.add(ballsComp, ball);
       return ball;
-    }
-    function removeBall() {
-      if (ball) { Composite.remove(world, ball); ball = null; }
     }
 
     function destroy() {
-      removeBall();
-      Composite.remove(world, [statics, pegs]);
+      Composite.remove(world, [statics, pegs, ballsComp]);
       Composite.clear(statics, false, true);
       Composite.clear(pegs, false, true);
+      Composite.clear(ballsComp, false, true);
       loadedCols.clear();
+      balls.length = 0;
     }
 
     return {
-      get ball() { return ball; },
-      zoneBodies, spawnBall, removeBall, updatePegWindow, destroy,
+      balls, zoneBodies, spawnBall, updatePegWindow, destroy,
       loadedPegCount: () => Composite.allBodies(pegs).length,
     };
   }

@@ -43,6 +43,22 @@
       setTarget(cx, cy, zoom);
     }
 
+    // Frame several points at once: zoom out just enough to contain them all
+    // (between minZoom and maxZoom), keeping the group a third of the way down.
+    function followPoints(points, maxZoom, minZoom, bounds) {
+      if (points.length === 1) return followPoint(points[0].x, points[0].y, maxZoom, bounds);
+      const { sw, sh } = screenSize();
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const p of points) {
+        x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+      }
+      const pad = 260;
+      const zoom = Math.min(maxZoom, Math.max(minZoom,
+        Math.min(sw / (x1 - x0 + pad * 2), sh / (y1 - y0 + pad * 2))));
+      followPoint((x0 + x1) / 2, (y0 + y1) / 2, zoom, bounds);
+    }
+
     function update(dt) {
       const a = 1 - Math.exp(-cam.posRate * dt);
       const b = 1 - Math.exp(-cam.zoomRate * dt);
@@ -106,7 +122,7 @@
     }
 
     return Object.assign(cam, {
-      setTarget, snap, fitRect, followPoint, update, apply, worldRect, screenToWorld, screenSize,
+      setTarget, snap, fitRect, followPoint, followPoints, update, apply, worldRect, screenToWorld, screenSize,
       enableManualControls,
     });
   }

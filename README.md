@@ -1,49 +1,77 @@
 # Plinko Selector
 
-A giant Plinko board that picks one outcome from a list of options — live, on a
-website, so everyone can watch the randomness happen.
+A giant Plinko board that picks outcomes from a list of options — live, on a website, so everyone
+can watch the randomness happen. Built for drawing scoring-rule modifications for the
+*A Clash of Units* fantasy league, but it takes any list.
 
-- Every option gets its own bin at the bottom of the board. **Bins are shuffled before every drop.**
-- The ball is launched from a **random spot** along the top.
-- Halfway down there is a row of **+ / − zones** (random sign per segment, re-rolled every drop).
-  Whichever zone the ball falls through decides the sign of the result, so
-  **N options = 2N outcomes** (e.g. 150 options → 300 outcomes).
-- The camera follows the ball; drag to pan and scroll to zoom whenever you want a closer look.
+**Live:** https://mrnelson6.github.io/RandomSelector/
 
-## Why it's fair
+## How a drop works
 
-The bin order and the zone signs are both drawn from a uniform random generator for each run.
-Because no step ever looks at *which* option sits where, every `(option, sign)` pair has exactly
-a `1 / 2N` chance — no matter how center-biased the ball's landing spots are.
+1. **The cannon** rides its rail to a random spot along the top, swings to a random angle and fires.
+   The ball arcs through a field of pinball bumpers before it reaches the pegs.
+2. **The +/− zones** a third of the way down decide the sign. Each option carries an increment
+   (`Passing Yards +0.04`); falling through a `−` zone flips it to `Passing Yards −0.04`. So
+   *N options = 2N outcomes*. The zone segments are re-rolled every drop.
+3. **The category buckets** halfway down funnel the ball into one group — Passing, Rushing, Kicking,
+   Team Defense, … — with full-height walls down to the bins. Each bucket's width is proportional
+   to how many options it holds; their order is shuffled every drop.
+4. **The bins** at the bottom, one per option, shuffled every drop (within their bucket).
 
-Each run has a **seed** shown in the corner. "copy link" gives a URL (`?seed=…`) that rebuilds the
-exact same board (same shuffle, same zones, same launch point) so anyone can check that it was not
-hand-picked. The physics engine is not guaranteed to be bit-identical across devices, so the same
-seed reproduces the *board*, not necessarily the landing spot.
+The camera follows the ball; the **"Under the ball"** panel lists the seven bins directly beneath
+it, with the sign applied once it's known. Drag to pan and scroll to zoom whenever you like.
+
+## Settings (⚙ Options)
+
+| Setting | What it does |
+|---|---|
+| Balls per drop | 1–10 balls fired in sequence from the same cannon position. Each gets its own sign and bin. |
+| Board height | Number of peg rows: 36 (short, ~15 s) up to 180. Default is 90 (~30 s a drop). |
+| +/− zones | Turn the sign band off to draw plain options. |
+| Category buckets | Turn the mid-board buckets off for one flat shuffle. Needs categories in the list. |
+
+Settings and custom lists are saved in your browser only. Share links carry the settings too.
+
+## Fairness
+
+All randomness (bin order, bucket order, zone signs, cannon position and shots) comes from a seeded
+RNG, shown as the **seed** in the corner. "copy link" gives a URL that rebuilds the same board so
+anyone can check it wasn't hand-picked. (The physics engine isn't guaranteed to be bit-identical
+across devices, so the same seed reproduces the *board*, not necessarily the landing spot.)
+
+- **Buckets off:** every `(option, sign)` pair has *exactly* a `1 / 2N` chance, because the bins
+  are a uniform shuffle and the signs are a fair coin — no matter how centre-biased the ball's
+  landing spots are.
+- **Buckets on:** options inside a bucket are exactly equally likely. Across buckets, odds are
+  proportional to bucket width (= option count) only as far as the ball's landing position is
+  spread evenly over the board; with a random cannon position and a tall board it is close to
+  even, but not mathematically exact. Turn buckets off when you need the strict guarantee.
 
 Add `&autodrop=1` to a link to make the ball drop as soon as the page loads.
 
 ## Editing the options
 
-The default list lives in [`options.js`](options.js). Replace the placeholder with your own:
+The default list lives in [`options.js`](options.js) as `{ label, value, category }` entries:
 
 ```js
 window.DEFAULT_OPTIONS = [
-  "Tacos",
-  "Sushi",
-  "Pizza",
-  // …one string per option
+  { label: "Passing Yards", value: "0.04", category: "Passing" },
+  { label: "Rushing TD",    value: "3",    category: "Rushing" },
+  // value and category are optional
 ];
 ```
 
-Commit and push and the site updates. Visitors can also paste their own list in the **Options**
-panel; that list is stored only in their browser (`localStorage`) and "Reset to defaults" brings
-back `options.js`.
+Commit and push and the site updates. In the Options panel the same list is shown one per line as
+`Name +0.04 | Category`, and visitors can paste their own.
+
+The default list was generated from `random_srm_pool.csv` (the options) and
+`Appendix _A__ … Rules by Year.csv` (the section headers that became the categories).
 
 ## Tuning
 
-Sizes, physics and timings are in [`js/config.js`](js/config.js): bin width, number of peg rows,
-gravity, bounciness, zone segment sizes, etc. Fewer `pegRows` or higher `gravity` makes a faster drop.
+Sizes, physics and timings are in [`js/config.js`](js/config.js): bin width, gravity,
+bounciness, cannon speed/angle, bumper layout, zone segment sizes, where the zone and bucket rows
+sit, and the defaults for the user settings.
 
 ## Running locally
 
@@ -56,25 +84,22 @@ python -m http.server 8000
 
 ## Deploying to GitHub Pages
 
-1. Push this folder to a GitHub repository.
-2. In the repo go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, pick `main` and `/ (root)`, save.
-4. After a minute the site is live at `https://<user>.github.io/<repo>/`.
+Pushing to `main` redeploys the site (Settings → Pages → Deploy from branch `main` / root).
 
 ## Project layout
 
 ```
-index.html           page shell + HUD + panels
+index.html           page shell + HUD + PIP + panels
 style.css
 options.js           default option list (edit me)
 vendor/matter.min.js Matter.js physics engine (vendored)
 js/rng.js            seeded RNG + shuffle
-js/config.js         tunables
-js/layout.js         board geometry (pure math)
-js/board.js          Matter.js bodies; pegs are only instantiated near the ball
+js/config.js         tunables + default settings
+js/layout.js         board geometry and per-run arrangement (pure math)
+js/board.js          Matter.js bodies; pegs are only instantiated near the balls
 js/camera.js         follow / zoom / manual pan
 js/render.js         canvas renderer with viewport culling
-js/game.js           run state machine + landing/sign detection
-js/ui.js             buttons, settings panel, seed links
+js/game.js           run state machine: cannon, balls, signs, landing
+js/ui.js             buttons, settings panel, PIP, results, seed links
 js/main.js           fixed-timestep game loop
 ```

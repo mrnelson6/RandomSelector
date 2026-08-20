@@ -1,0 +1,157 @@
+Quarterbacks +1
+Running Backs +1
+Wide Receivers +1
+Tight Ends +1
+Kickers +1
+Defense +1
+Flex (W/R/T) +1
+Flex (W/R) +1
+Flex (W/T) +1
+Flex (Q/W/R/T) +1
+Flex (IDP) +1
+DL +1
+LB +1
+DB +1
+Bench +1
+Passing Yards +0.04
+Passing TDs +3
+Passing First Down +1
+2-pt Conversion (Pass) +10
+Pass Intercepted +3
+Pick 6 Thrown +10
+Pass Completed +1
+Incomplete Pass +1
+Pass Attempt +1
+QB Sacked +3
+40+ Yard Completion Bonus +5
+40+ Yard Pass TD Bonus +10
+50+ Yard Pass TD Bonus +10
+Rushing Yards +0.1
+Rushing TD +3
+Rushing First Down +2
+2-pt Conversion (Rush) +10
+Rush Attempt +1
+40+ Yard Rush Bonus +10
+40+ Yard Rush TD Bonus +10
+50+ Yard Rush TD Bonus +10
+Reception +1
+Receiving Yards +0.1
+Receiving TD +3
+Receiving First Down +1
+2-pt Conversion (Rec) +10
+0-4 Yard Reception Bonus +2
+5-9 Yard Reception Bonus +2
+10-19 Yard Reception Bonus +2
+20-29 Yard Reception Bonus +3
+30-39 Yard Reception Bonus +5
+40-49 Yard Reception Bonus +5
+50+ Yard Reception Bonus +5
+Reception Bonus - RB +2
+Reception Bonus - WR +1
+Reception Bonus - TE +2
+FG Made +3
+FG Made (0-19 yards) +50
+FG Made (20-29 yards) +5
+FG Made (30-39 yards) +5
+FG Made (40-49 yards) +5
+FG Made (50+ yards) +5
+Points per FG yard +0.2
+Points per FG yard over 30 +0.3
+PAT Made +3
+FG Missed +5
+FG Missed (0-19 yards) +100
+FG Missed (20-29 yards) +50
+FG Missed (30-39 yards) +10
+FG Missed (40-49 yards) +10
+FG Missed (50+ yards) +10
+PAT Missed +10
+Defense TD +10
+Points Allowed (0) +50
+Points Allowed (1-6) +10
+Points Allowed (7-13) +10
+Points Allowed (14-20) +5
+Points Allowed (21-27) +5
+Points Allowed (28-34) +5
+Points Allowed (35+) +10
+Points per Point Allowed +1
+Less Than 100 Total Yards Allowed +100
+100-199 Yards Allowed +10
+200-299 Yards Allowed +5
+300-349 Yards Allowed +5
+350-399 Yards Allowed +5
+400-449 Yards Allowed +10
+450-499 Yards Allowed +10
+500-549 Yards Allowed +10
+550+ Yards Allowed +50
+Points per Yards Allowed +0.05
+3 and Out +3
+4th Down Stop +5
+Hit on QB (Team Def) +2
+Sack (Team Def) +3
+Sack Yards (Team Def) +0.3
+Interception (Team Def) +3
+Interception Yards (Team Def) +0.3
+Fumble Recovery (Team Def) +5
+Fumble Return Yards (Team Def) +0.5
+Tackle For Loss (Team Def) +3
+Assisted Tackle (Team Def) +1
+Solo Tackle (Team Def) +0.5
+Tackle (Team Def) +0.5
+Safety (Team Def) +10
+Forced Fumble (Team Def) +3
+Blocked Kick +10
+Forced Punt +2
+Pass Defended (Team Def) +2
+2-pt Conversion Returns +100
+Missed FG Return Yards (Team Def) +10
+Blocked Kick Return Yards (Team Def) +10
+Special Teams TD (D/ST) +10
+Special Teams Forced Fumble (D/ST) +10
+Special Teams Fumble Recovery (D/ST) +10
+Special Teams Solo Tackle (D/ST) +3
+Punt Return Yards (D/ST) +0.3
+Kick Return Yards (D/ST) +0.2
+Special Teams Player TD +10
+Special Teams Player Forced Fumble +10
+Special Teams Player Fumble Recovery +10
+Special Teams Player Solo Tackle +3
+Player Punt Return Yards +0.3
+Player Kick Return Yards +0.2
+Fumble +3
+Fumble Lost +5
+Fumble Recovery TD +10
+100-199 Yard Rushing Game +5
+200+ Yard Rushing Game +50
+100-199 Yard Receiving Game +5
+200+ Yard Receiving Game +50
+300-399 Yard Passing Game +10
+400+ Yard Passing Game +10
+100-199 Combined Rush + Rec Yards +5
+200+ Combined Rush + Rec Yards +10
+25+ Pass Completions +5
+20+ Carries +5
+First Down Bonus - RB +2
+First Down Bonus - WR +2
+First Down Bonus - TE +3
+First Down Bonus - QB +1
+IDP Touchdown +10
+Sack (IDP) +3
+Sack Yards (IDP) +0.3
+Hit on QB (IDP) +2
+Tackle (IDP) +0.5
+Tackle For Loss (IDP) +3
+"Blocked Punt, PAT, or FG (IDP)" +10
+Interception (IDP) +3
+Interception Return Yards (IDP) +0.3
+Fumble Recovery (IDP) +5
+Fumble Recovery Return Yards (IDP) +0.5
+Forced Fumble (IDP) +3
+Safety (IDP) +10
+Assisted Tackle (IDP) +1
+Solo Tackle (IDP) +0.5
+Pass Defended (IDP) +2
+10+ Tackle Bonus +5
+2+ Sack Bonus +5
+3+ Pass Defended Bonus +10
+50+ Yard Interception Return TD Bonus +10
+50+ Yard Fumble Recovery Return TD Bonus +50

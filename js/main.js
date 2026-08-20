@@ -11,9 +11,11 @@
   const game = Game.create({
     cfg, camera,
     onState: (s, g) => ui && ui.onState(s, g),
-    onSign: (sign, zone) => ui && ui.onSign(sign, zone),
+    onSign: (sign, zone, ball) => ui && ui.onSign(sign, zone, ball),
     onResult: r => ui && ui.onResult(r),
   });
+  game.cfg = cfg;
+  game.camera = camera;
   renderer.resize();
   ui = UI.create(game);
   camera.snap();
@@ -22,6 +24,7 @@
   const STEP = 1000 / 60;
   let last = performance.now();
   let acc = 0;
+  let frameNo = 0;
 
   function frame(now) {
     let dt = now - last;
@@ -39,14 +42,8 @@
 
     game.updateCamera();
     camera.update(dt / 1000);
-
-    renderer.draw({
-      layout: game.layout, cfg, camera,
-      zones: game.zones, labels: game.labels, sign: game.sign,
-      ball: game.previewBall(), trail: game.trail,
-      winningBin: game.winningBin, activeZone: game.activeZone,
-      time: game.time,
-    });
+    renderer.draw(game);
+    if ((frameNo++ & 3) === 0) ui.updatePip();
     requestAnimationFrame(frame);
   }
 
