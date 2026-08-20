@@ -99,6 +99,10 @@ code {
   animation: fade-in 0.3s ease-out;
 }
 .result-card {
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
@@ -189,7 +193,7 @@ code {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  width: min(340px, calc(100vw - 32px));
+  width: min(440px, calc(100vw - 32px));
   background: rgba(15, 17, 23, 0.88);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
@@ -223,7 +227,7 @@ code {
 #pip li.empty { opacity: 0.25; }
 
 /* Multi-ball result list */
-.result-list { list-style: none; margin: 8px 0 4px; padding: 0; text-align: left; }
+.result-list { list-style: none; margin: 8px 0 4px; padding: 0 4px; text-align: left; max-height: 50vh; overflow-y: auto; }
 .result-list li {
   display: flex; gap: 12px; align-items: baseline;
   font-size: clamp(18px, 2.6vw, 28px); font-weight: 700; padding: 6px 0;

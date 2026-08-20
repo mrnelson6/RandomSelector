@@ -272,7 +272,7 @@
     }
     function readSettingsForm() {
       return {
-        balls: parseInt(els.setBalls.value, 10) || 1,
+        balls: Math.min(global.CONFIG.maxBalls, Math.max(1, parseInt(els.setBalls.value, 10) || 1)),
         rows: parseInt(els.setRows.value, 10) || global.DEFAULT_SETTINGS.rows,
         signs: els.setSigns.checked,
         categories: els.setCats.checked,

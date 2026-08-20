@@ -2,7 +2,7 @@
 window.CONFIG = {
   binWidth: 72,          // width of one bin; also the horizontal peg spacing
   rowHeight: 60,         // vertical distance between peg rows
-  binDepth: 230,         // height of the bins at the bottom
+  binDepth: 500,         // height of the bins at the bottom (long enough for the longest label)
   pegRadius: 8,
   ballRadius: 14,
   // With these radii a falling ball cannot slip straight through the staggered
@@ -35,6 +35,8 @@ window.CONFIG = {
   cannonMaxAngle: 62,    // degrees either side of straight up
   aimSeconds: 1.6,       // carriage travel + aim time before the first shot
   shotInterval: 1.3,     // seconds between balls when dropping several (the cannon moves between shots)
+  shotIntervalMin: 0.45, // pacing tightens as the ball count grows, down to this
+  maxBalls: 40,
   cannonRoamBins: 12,    // how far (in bins) the cannon may travel between shots
   bumperRows: [400, 560],
   bumperSpacingBins: 5,

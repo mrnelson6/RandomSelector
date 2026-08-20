@@ -68,7 +68,7 @@
     function hasCategoryData() { return game.options.some(o => o.category); }
     function setSettings(s) {
       game.settings = { ...game.settings, ...s };
-      game.settings.balls = Math.min(10, Math.max(1, game.settings.balls | 0 || 1));
+      game.settings.balls = Math.min(cfg.maxBalls, Math.max(1, game.settings.balls | 0 || 1));
       game.settings.rows = Math.min(200, Math.max(12, game.settings.rows | 0 || 90));
     }
 
@@ -141,7 +141,7 @@
         const next = game.shots[game.balls.length];
         game.cannon.targetAngle = next.angle;
         game.cannon.targetX = next.x;
-        game.shotTimer = cfg.shotInterval;
+        game.shotTimer = Math.max(cfg.shotIntervalMin, cfg.shotInterval - (game.shots.length - 1) * 0.03);
       }
       if (game.state !== 'falling') {
         camera.posRate = 6; camera.zoomRate = 3;
@@ -273,11 +273,11 @@
         camera.manual = false;
         camera.posRate = 3; camera.zoomRate = 2;
         if (game.balls.length === 1) {
-          camera.fitRect(b.x - 3 * b.w, b.y - 260, 7 * b.w, b.h + 320, 40);
+          camera.fitRect(b.x - 4 * b.w, b.y - 200, 9 * b.w, b.h + 260, 40);
         } else {
           const xs = game.balls.map(bb => bb.bin * b.w);
           const x0 = Math.min(...xs) - 2 * b.w, x1 = Math.max(...xs) + 3 * b.w;
-          camera.fitRect(x0, b.y - 260, x1 - x0, b.h + 320, 40);
+          camera.fitRect(x0, b.y - 200, x1 - x0, b.h + 260, 40);
         }
         setState('landed');
         onResult && onResult(game.results);

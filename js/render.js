@@ -249,7 +249,7 @@
         ctx.fillRect(i * cfg.binWidth - dw / 2, layout.binTop, dw, cfg.binDepth);
       }
 
-      const fontSize = 17;
+      const fontSize = 18;
       if (fontSize * zoom < 4.5) return;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
