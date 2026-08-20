@@ -3,18 +3,31 @@ window.CONFIG = {
   binWidth: 72,          // width of one bin; also the horizontal peg spacing
   rowHeight: 60,         // vertical distance between peg rows
   binDepth: 230,         // height of the bins at the bottom
-  pegRadius: 6,
-  ballRadius: 12,
+  pegRadius: 8,
+  ballRadius: 14,
+  // With these radii a falling ball cannot slip straight through the staggered
+  // lattice (8 + 14 > half the peg spacing 36/2) and cannot wedge between
+  // neighbouring pegs (sum of radii x2 < peg-to-peg distance 70).
   dividerWidth: 6,
   wallThickness: 60,
   categoryWallWidth: 6,
+  wallBumpRadius: 16,    // round bumps on the category walls so balls can't slide down them
+  wallPegShift: 52,      // offset-row pegs next to a wall move out to this distance from it
+
+  // Special pegs sprinkled across the board (seeded per run)
+  specialPegFraction: 0.045,
+  specials: {
+    bouncy:  { weight: 0.5, radius: 10, restitution: 1.6 },   // super bouncy
+    big:     { weight: 0.3, radius: 20 },                     // boulder
+    spinner: { weight: 0.2, arm: 24, thickness: 6, speed: 2.6 }, // rotating cross, rad/s
+  },
 
   // Launch area (above the first peg row)
   topPadding: 760,       // height of the launch area
   railY: 150,            // cannon rail
   barrelLength: 72,
   cannonMinSpeed: 9,
-  cannonMaxSpeed: 13.5,
+  cannonMaxSpeed: 16,
   cannonMaxAngle: 62,    // degrees either side of straight up
   aimSeconds: 1.6,       // carriage travel + aim time before the first shot
   shotInterval: 0.9,     // seconds between balls when dropping several

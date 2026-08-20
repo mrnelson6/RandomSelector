@@ -76,27 +76,63 @@
       drawBalls(game);
     }
 
-    function drawPegs({ layout, cfg, camera }, view) {
+    const PEG_STYLE = {
+      bouncy: { fill: '#ff4fd8', ring: 'rgba(255, 79, 216, 0.35)' },
+      big:    { fill: '#5d6684', ring: '#8a92ad' },
+      bump:   { fill: '#aab2cc', ring: null },
+      spinner:{ fill: '#4ddfff', ring: null },
+    };
+
+    function drawPegs({ layout, cfg, camera, time }, view) {
       const zoom = camera.zoom;
       const [r0, r1] = layout.rowRange(view.y0, view.y1);
       if (r1 < r0) return;
       // At low zoom individual pegs are sub-pixel; thin them out.
-      const radius = Math.max(cfg.pegRadius, 0.8 / zoom);
+      const minR = 0.8 / zoom;
       const rowSkip = zoom < 0.1 ? 3 : zoom < 0.25 ? 2 : 1;
+      const specials = [];
       ctx.fillStyle = COLORS.peg;
       ctx.beginPath();
       for (let r = r0; r <= r1; r += rowSkip) {
         if (!layout.rowHasPegs(r)) continue;
-        const y = layout.rowY(r);
-        const [c0, c1] = layout.pegColRange(r, view.x0, view.x1);
+        const [c0, c1] = layout.pegColRange(r, view.x0 - cfg.binWidth, view.x1 + cfg.binWidth);
         for (let c = c0; c <= c1; c++) {
-          if (!layout.pegExists(r, c)) continue;
-          const x = layout.pegX(r, c);
-          ctx.moveTo(x + radius, y);
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          const peg = layout.pegAt(r, c);
+          if (!peg) continue;
+          if (peg.kind !== 'peg') { specials.push(peg); continue; }
+          const radius = Math.max(peg.r, minR);
+          ctx.moveTo(peg.x + radius, peg.y);
+          ctx.arc(peg.x, peg.y, radius, 0, Math.PI * 2);
         }
       }
       ctx.fill();
+
+      const spin = cfg.specials.spinner;
+      for (const peg of specials) {
+        const style = PEG_STYLE[peg.kind] || PEG_STYLE.big;
+        if (peg.kind === 'spinner') {
+          ctx.save();
+          ctx.translate(peg.x, peg.y);
+          ctx.rotate(peg.phase + peg.dir * spin.speed * time);
+          ctx.fillStyle = style.fill;
+          ctx.fillRect(-spin.arm, -spin.thickness / 2, spin.arm * 2, spin.thickness);
+          ctx.fillRect(-spin.thickness / 2, -spin.arm, spin.thickness, spin.arm * 2);
+          ctx.beginPath(); ctx.arc(0, 0, spin.thickness, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+          continue;
+        }
+        const radius = Math.max(peg.r, minR);
+        if (peg.kind === 'bouncy' && zoom > 0.2) {
+          // pulsing halo
+          ctx.fillStyle = style.ring;
+          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius * (1.6 + 0.3 * Math.sin(time * 6 + peg.x)), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = style.fill;
+        ctx.beginPath(); ctx.arc(peg.x, peg.y, radius, 0, Math.PI * 2); ctx.fill();
+        if (peg.kind === 'big' && zoom > 0.2) {
+          ctx.lineWidth = 3; ctx.strokeStyle = style.ring; ctx.stroke();
+        }
+      }
     }
 
     function drawZones({ layout, cfg, camera, zones, balls, time }, view) {

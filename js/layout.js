@@ -74,12 +74,65 @@
     function rowHasPegs(r) { return r !== zoneRow && r !== categoryRow; }
     function pegCountInRow(r) { return rowOffset(r) === 0 ? n + 1 : n; }
     function pegX(r, c) { return rowOffset(r) + c * w; }
-    // Aligned pegs that would sit inside a category wall are omitted.
-    function pegExists(r, c) {
-      if (!rowHasPegs(r)) return false;
-      if (hasCategories && r > categoryRow && rowOffset(r) === 0 && walls.has(c)) return false;
-      return true;
+    function belowCategoryBand(r) { return hasCategories && r > categoryRow; }
+    function nearWall(c) { return walls.has(c) || walls.has(c + 1) || walls.has(c - 1); }
+
+    // ---- Special pegs (assigned per run from the seeded RNG) ----
+    const specials = new Map(); // key(r, c) -> { kind, phase, dir }
+    const key = (r, c) => r * (n + 2) + c;
+    function assignSpecials(rng) {
+      specials.clear();
+      const kinds = Object.entries(cfg.specials);
+      const totalW = kinds.reduce((a, [, k]) => a + k.weight, 0);
+      const pick = () => {
+        let x = rng.next() * totalW;
+        for (const [name, k] of kinds) { x -= k.weight; if (x <= 0) return name; }
+        return kinds[kinds.length - 1][0];
+      };
+      for (let r = 2; r < rows - 2; r++) {
+        if (!rowHasPegs(r)) continue;
+        if (Math.abs(r - zoneRow) <= 1 || Math.abs(r - categoryRow) <= 1) continue;
+        const count = pegCountInRow(r);
+        for (let c = 1; c < count - 1; c++) {
+          if (rng.next() >= cfg.specialPegFraction) continue;
+          if (hasCategories && nearWall(c)) continue;
+          // Keep specials apart so their larger radii can't form a trap together.
+          let crowded = false;
+          for (let dr = -1; dr <= 1 && !crowded; dr++)
+            for (let dc = -1; dc <= 1; dc++)
+              if ((dr || dc) && specials.has(key(r + dr, c + dc))) { crowded = true; break; }
+          if (crowded) continue;
+          specials.set(key(r, c), { kind: pick(), phase: rng.range(0, Math.PI * 2), dir: rng.bool() ? 1 : -1 });
+        }
+      }
+      return specials.size;
     }
+
+    // The peg (if any) at row r, column c:
+    //   { x, y, r: radius, kind: 'peg' | 'bump' | 'bouncy' | 'big' | 'spinner', phase?, dir? }
+    function pegAt(r, c) {
+      if (!rowHasPegs(r) || c < 0 || c >= pegCountInRow(r)) return null;
+      const y = rowY(r);
+      const off = rowOffset(r);
+      let x = off + c * w;
+      if (off === 0) {
+        // Aligned row: a peg on a wall line becomes a big round bump on the wall.
+        if (belowCategoryBand(r) && walls.has(c)) return { x, y, r: cfg.wallBumpRadius, kind: 'bump' };
+      } else if (belowCategoryBand(r)) {
+        // Offset row: pegs next to a wall move outwards so a ball can't wedge
+        // between wall and peg, and can't fall straight down beside the wall.
+        const wallRight = walls.has(c + 1), wallLeft = walls.has(c);
+        if (wallLeft && !wallRight) x = c * w + cfg.wallPegShift;
+        else if (wallRight && !wallLeft) x = (c + 1) * w - cfg.wallPegShift;
+      }
+      const sp = specials.get(key(r, c));
+      if (sp) {
+        const def = cfg.specials[sp.kind];
+        return { x, y, r: def.radius || def.arm, kind: sp.kind, phase: sp.phase, dir: sp.dir };
+      }
+      return { x, y, r: cfg.pegRadius, kind: 'peg' };
+    }
+    function pegExists(r, c) { return pegAt(r, c) !== null; }
 
     // Columns of row r whose pegs fall inside [x0, x1].
     function pegColRange(r, x0, x1) {
@@ -163,7 +216,7 @@
       zoneRow, zoneY, zoneTop: zoneY - cfg.zoneHeight / 2, zoneBottom: zoneY + cfg.zoneHeight / 2,
       categoryRow, categoryY, categoryTop, categoryBandH, categoryBottom: categoryTop + categoryBandH,
       bumpers, bumpersIn,
-      rowOffset, rowY, rowHasPegs, pegExists, pegCountInRow, pegX, pegColRange, rowRange,
+      rowOffset, rowY, rowHasPegs, pegExists, pegAt, assignSpecials, specials, pegCountInRow, pegX, pegColRange, rowRange,
       binIndexAt, binRect, makeZones, zoneAt, categoryAt, launchPoint, launchShot, muzzle,
     };
   }

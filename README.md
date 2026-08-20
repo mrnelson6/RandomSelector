@@ -9,7 +9,8 @@ can watch the randomness happen. Built for drawing scoring-rule modifications fo
 ## How a drop works
 
 1. **The cannon** rides its rail to a random spot along the top, swings to a random angle and fires.
-   The ball arcs through a field of pinball bumpers before it reaches the pegs.
+   There is no ceiling, so the ball flies up and arcs back down through a field of pinball bumpers
+   before it reaches the pegs.
 2. **The +/− zones** a third of the way down decide the sign. Each option carries an increment
    (`Passing Yards +0.04`); falling through a `−` zone flips it to `Passing Yards −0.04`. So
    *N options = 2N outcomes*. The zone segments are re-rolled every drop.
@@ -17,6 +18,18 @@ can watch the randomness happen. Built for drawing scoring-rule modifications fo
    Team Defense, … — with full-height walls down to the bins. Each bucket's width is proportional
    to how many options it holds; their order is shuffled every drop.
 4. **The bins** at the bottom, one per option, shuffled every drop (within their bucket).
+
+Sprinkled through the peg field (about 1 in 22 pegs, placed by the seed) are **special pegs**:
+
+| Peg | Look | Effect |
+|---|---|---|
+| Super bouncy | pink with a pulsing halo | restitution 1.6 — the ball leaves faster than it arrived |
+| Boulder | big grey disc | a wide deflector |
+| Spinner | cyan rotating cross | bats the ball sideways |
+
+The category walls carry large round **bumps** on alternating rows, and the pegs next to a wall are
+pushed outward, so a ball can neither slide down a wall nor wedge between wall and peg. Peg and ball
+radii are chosen so there is no straight vertical channel anywhere in the lattice.
 
 The camera follows the ball; the **"Under the ball"** panel lists the seven bins directly beneath
 it, with the sign applied once it's known. Drag to pan and scroll to zoom whenever you like.

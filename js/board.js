@@ -1,4 +1,4 @@
-// Builds Matter.js bodies from the layout. Walls, ceiling, floor, dividers,
+// Builds Matter.js bodies from the layout. Walls, floor, dividers,
 // bumpers, category walls and zone sensors always exist; pegs are only given
 // physics bodies in a window of columns around the balls (the renderer draws
 // pegs from the layout instead).
@@ -16,11 +16,12 @@
     const t = cfg.wallThickness;
     const staticOpts = { isStatic: true, friction: 0.05, restitution: 0.3 };
 
-    // Walls, ceiling and floor
+    // Side walls (extended far above the board so a cannon shot can fly up
+    // without escaping sideways — there is deliberately no ceiling) and floor.
+    const sky = 6000;
     Composite.add(statics, [
-      Bodies.rectangle(-t / 2, layout.height / 2, t, layout.height + 2 * t, { ...staticOpts, label: 'wall' }),
-      Bodies.rectangle(layout.width + t / 2, layout.height / 2, t, layout.height + 2 * t, { ...staticOpts, label: 'wall' }),
-      Bodies.rectangle(layout.width / 2, -t / 2, layout.width + 2 * t, t, { ...staticOpts, label: 'ceiling' }),
+      Bodies.rectangle(-t / 2, (layout.height - sky) / 2, t, layout.height + sky, { ...staticOpts, label: 'wall' }),
+      Bodies.rectangle(layout.width + t / 2, (layout.height - sky) / 2, t, layout.height + sky, { ...staticOpts, label: 'wall' }),
       Bodies.rectangle(layout.width / 2, layout.binBottom + t / 2, layout.width + 2 * t, t, { ...staticOpts, label: 'floor' }),
     ]);
 
@@ -65,6 +66,27 @@
     // ---- Peg windowing -------------------------------------------------
     const loadedCols = new Map(); // col -> [bodies]
 
+    const spinners = new Set();
+
+    function makePegBody(peg) {
+      switch (peg.kind) {
+        case 'bouncy':
+          return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: 'bouncy', restitution: cfg.specials.bouncy.restitution, friction: 0 });
+        case 'spinner': {
+          const sp = cfg.specials.spinner;
+          const a = Bodies.rectangle(peg.x, peg.y, sp.arm * 2, sp.thickness);
+          const b = Bodies.rectangle(peg.x, peg.y, sp.thickness, sp.arm * 2);
+          const body = Body.create({ parts: [a, b], isStatic: true, label: 'spinner', friction: 0.05, restitution: 0.5 });
+          body.plugin.spin = { phase: peg.phase, dir: peg.dir };
+          return body;
+        }
+        case 'bump':
+          return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: 'bump', restitution: 0.5 });
+        default:
+          return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: peg.kind, restitution: 0.4 });
+      }
+    }
+
     function pegBodiesForCol(k) {
       const out = [];
       for (let r = 0; r < layout.rows; r++) {
@@ -72,13 +94,23 @@
         const cols = [k];
         if (k === layout.n - 1 && count === layout.n + 1) cols.push(layout.n); // right-edge peg
         for (const c of cols) {
-          if (c < 0 || c >= count || !layout.pegExists(r, c)) continue;
-          out.push(Bodies.circle(layout.pegX(r, c), layout.rowY(r), cfg.pegRadius, {
-            ...staticOpts, label: 'peg', restitution: 0.4,
-          }));
+          const peg = layout.pegAt(r, c);
+          if (!peg) continue;
+          const body = makePegBody(peg);
+          if (body.plugin.spin) spinners.add(body);
+          out.push(body);
         }
       }
       return out;
+    }
+
+    // Rotate the spinner crosses; the renderer uses the same formula.
+    function updateSpinners(time) {
+      const speed = cfg.specials.spinner.speed;
+      for (const body of spinners) {
+        const sp = body.plugin.spin;
+        Body.setAngle(body, sp.phase + sp.dir * speed * time);
+      }
     }
 
     let lastKey = '';
@@ -92,7 +124,11 @@
         for (let k = Math.max(0, c - cfg.pegWindowCols); k <= Math.min(layout.n - 1, c + cfg.pegWindowCols); k++) wanted.add(k);
       }
       for (const [k, bodies] of loadedCols) {
-        if (!wanted.has(k)) { Composite.remove(pegs, bodies); loadedCols.delete(k); }
+        if (!wanted.has(k)) {
+          for (const b of bodies) spinners.delete(b);
+          Composite.remove(pegs, bodies);
+          loadedCols.delete(k);
+        }
       }
       for (const k of wanted) {
         if (!loadedCols.has(k)) {
@@ -126,11 +162,12 @@
       Composite.clear(pegs, false, true);
       Composite.clear(ballsComp, false, true);
       loadedCols.clear();
+      spinners.clear();
       balls.length = 0;
     }
 
     return {
-      balls, zoneBodies, spawnBall, updatePegWindow, destroy,
+      balls, zoneBodies, spawnBall, updatePegWindow, updateSpinners, destroy,
       loadedPegCount: () => Composite.allBodies(pegs).length,
     };
   }

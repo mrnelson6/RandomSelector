@@ -47,6 +47,7 @@
       aimTimer: 0,
       shotTimer: 0,
       time: 0,
+      nudges: 0, // anti-stuck kicks this run (diagnostic)
     };
 
     function setState(s) {
@@ -76,12 +77,14 @@
       const settings = { ...game.settings, categories: game.settings.categories && hasCategoryData() };
       game.arrangement = Layout.arrange(game.options, game.rng, settings);
       game.layout = Layout.build(game.arrangement.n, cfg, settings, game.arrangement.wallCols);
+      game.layout.assignSpecials(game.rng);
       game.zones = game.layout.makeZones(game.rng);
       game.launch = game.layout.launchPoint(game.rng);
       game.shots = Array.from({ length: game.settings.balls }, () => game.layout.launchShot(game.rng));
       game.board = Board.create(engine, game.layout, cfg, game.zones);
       game.balls = [];
       game.results = [];
+      game.nudges = 0;
       game.cannon.x = game.cannon.fromX = game.layout.width / 2;
       game.cannon.angle = game.cannon.targetAngle = 0;
       game.cannon.flash = 0;
@@ -174,6 +177,7 @@
       const layout = game.layout;
       const active = game.balls.filter(b => !b.landed);
       game.board.updatePegWindow(active.map(b => b.body.position.x));
+      game.board.updateSpinners(game.time);
 
       for (const ball of active) {
         const body = ball.body;
@@ -198,6 +202,7 @@
           ball.stuckCount = speed < cfg.stuckSpeed ? ball.stuckCount + 1 : 0;
           if (ball.stuckCount >= cfg.stuckFrames) {
             ball.stuckCount = 0;
+            game.nudges++;
             const dir = game.rng.bool() ? 1 : -1;
             Body.setVelocity(body, { x: dir * 1.5, y: -1 });
           }
