@@ -48,6 +48,7 @@
       aimTimer: 0,
       shotTimer: 0,
       time: 0,
+      focus: null, // ball the camera is following (see focusBall)
       nudges: 0, // anti-stuck kicks this run (diagnostic)
       pegFlashes: new Map(), // "x,y" -> time a special peg was last hit (for the renderer)
     };
@@ -88,9 +89,11 @@
       let sx = game.launch.x;
       for (let i = 0; i < game.settings.balls; i++) {
         if (i > 0) {
-          const roam = cfg.cannonRoamBins * cfg.binWidth;
-          const margin = cfg.binWidth * 1.5;
-          sx = Math.min(game.layout.width - margin, Math.max(margin, sx + game.rng.range(-roam, roam)));
+          // Anywhere on the board, but not right next to the last spot
+          const minMove = Math.min(cfg.cannonRoamMinBins * cfg.binWidth, game.layout.width * 0.4);
+          let next = sx, tries = 0;
+          do { next = game.layout.launchPoint(game.rng).x; } while (Math.abs(next - sx) < minMove && ++tries < 20);
+          sx = next;
         }
         game.shots.push({ ...game.layout.launchShot(game.rng), x: sx });
       }
@@ -98,6 +101,7 @@
       game.balls = [];
       game.results = [];
       game.nudges = 0;
+      game.focus = null;
       game.pegFlashes.clear();
       game.cannon.x = game.cannon.fromX = game.cannon.targetX = game.layout.width / 2;
       game.cannon.angle = game.cannon.targetAngle = 0;
@@ -206,7 +210,7 @@
 
       // Travel and swing towards the next shot, and fire on schedule.
       c.angle += (c.targetAngle - c.angle) * Math.min(1, dt * 6);
-      c.x += (c.targetX - c.x) * Math.min(1, dt * 4);
+      c.x += (c.targetX - c.x) * Math.min(1, dt * 5);
       if (game.balls.length < game.shots.length) {
         game.shotTimer -= dt;
         if (game.shotTimer <= 0) fire();
@@ -284,12 +288,19 @@
       }
     }
 
-    // The ball the PIP and bin labels refer to: the lowest one still falling,
-    // or the most recently landed one.
+    // The ball the camera, the PIP and the bin labels refer to. While the
+    // cannon is still firing it is the newest ball; afterwards it is the
+    // leading (lowest) ball, with some hysteresis so the camera doesn't flip
+    // between two balls that are neck and neck.
     function focusBall() {
       const active = game.balls.filter(b => !b.landed);
-      if (active.length) return active.reduce((a, b) => (b.body.position.y > a.body.position.y ? b : a));
-      return game.balls[game.balls.length - 1] || null;
+      if (!active.length) return game.balls[game.balls.length - 1] || null;
+      if (game.balls.length < game.shots.length) return active[active.length - 1];
+      const leader = active.reduce((a, b) => (b.body.position.y > a.body.position.y ? b : a));
+      const cur = game.focus && !game.focus.landed ? game.focus : null;
+      if (cur && leader !== cur && leader.body.position.y - cur.body.position.y < 400) return cur;
+      game.focus = leader;
+      return leader;
     }
 
     // Label shown inside bin i. With a single ball the sign is applied once known.
@@ -321,11 +332,16 @@
     function updateCamera() {
       if (camera.manual) return;
       if (game.state === 'falling') {
-        const active = game.balls.filter(b => !b.landed);
-        const pts = active.map(b => b.body.position);
-        // Keep the cannon in frame while it still has balls to fire
-        if (game.balls.length < game.shots.length) pts.push({ x: game.cannon.x, y: cfg.railY });
-        if (pts.length) camera.followPoints(pts, followZoom(), 0.3, game.layout);
+        if (game.balls.length < game.shots.length) {
+          // Still firing: stay with the cannon and the ball it just launched
+          const pts = [{ x: game.cannon.x, y: cfg.railY }];
+          const last = game.balls[game.balls.length - 1];
+          if (last && !last.landed && Math.abs(last.body.position.x - game.cannon.x) < 2500) pts.push(last.body.position);
+          camera.followPoints(pts, followZoom(), 0.45, game.layout);
+        } else {
+          const f = focusBall();
+          if (f && !f.landed) camera.followPoint(f.body.position.x, f.body.position.y, followZoom(), game.layout);
+        }
       }
     }
 

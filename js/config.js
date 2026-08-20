@@ -37,7 +37,7 @@ window.CONFIG = {
   shotInterval: 1.3,     // seconds between balls when dropping several (the cannon moves between shots)
   shotIntervalMin: 0.45, // pacing tightens as the ball count grows, down to this
   maxBalls: 40,
-  cannonRoamBins: 12,    // how far (in bins) the cannon may travel between shots
+  cannonRoamMinBins: 20, // between shots the cannon moves at least this far (in bins) to a new random spot
   bumperRows: [400, 560],
   bumperSpacingBins: 5,
   bumperRadius: 26,
