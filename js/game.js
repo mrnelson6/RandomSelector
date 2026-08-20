@@ -166,8 +166,10 @@
         else if (label === 'bump' || label === 'catwall' || label === 'wall') sfx('wall');
         else if (label === 'divider' || label === 'floor') sfx('divider');
         if (label === 'zone') {
+          // Every pass through the band counts: a ball knocked back up and
+          // through a different zone takes that zone's sign.
           const ball = game.balls.find(b => b.body === ballBody);
-          if (ball && !ball.sign) captureSign(ball, game.layout.zoneAt(game.zones, ballBody.position.x));
+          if (ball) captureSign(ball, game.layout.zoneAt(game.zones, ballBody.position.x));
         } else if (other.label === 'bouncy') {
           // Super-bouncy peg: fire the ball straight away from the peg centre,
           // much faster than it arrived.
@@ -182,9 +184,12 @@
     });
 
     function captureSign(ball, zone) {
+      if (ball.zone === zone) return;
+      const changed = ball.sign !== null && ball.sign !== zone.sign;
       ball.sign = zone.sign;
       ball.zone = zone;
       ball.signAt = game.time;
+      ball.signFlips = (ball.signFlips || 0) + (changed ? 1 : 0);
       sfx('zone', { sign: zone.sign });
       onSign && onSign(zone.sign, zone, ball);
     }
@@ -230,6 +235,11 @@
         // Belt and braces: if we somehow passed the zone row without a contact event.
         if (layout.hasZones && !ball.sign && p.y > layout.zoneBottom + cfg.ballRadius) {
           captureSign(ball, layout.zoneAt(game.zones, p.x));
+        }
+        // Clear of the band again (above or below): the next entry is a fresh pass.
+        if (layout.hasZones && ball.zone && (p.y < layout.zoneTop - cfg.ballRadius * 2 || p.y > layout.zoneBottom + cfg.ballRadius * 2)) {
+          ball.lastZone = ball.zone;
+          ball.zone = null;
         }
 
         if (layout.hasCategories && !ball.inLane && p.y > layout.categoryBottom + cfg.ballRadius) {

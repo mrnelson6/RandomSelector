@@ -143,7 +143,7 @@
       const zoom = camera.zoom;
       const top = layout.zoneTop, h = cfg.zoneHeight;
       const fontSize = h * 0.8;
-      const activeZones = new Set(balls.map(b => b.zone).filter(Boolean));
+      const activeZones = new Set(balls.map(b => b.zone || b.lastZone).filter(Boolean));
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       for (const z of zones) {
