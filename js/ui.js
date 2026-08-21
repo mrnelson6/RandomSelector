@@ -7,15 +7,16 @@
   const PIP_ROWS = 7;
   const MINUS = '−';
 
-  // One option per line: "Name +0.5 | Category". Value and category are optional.
+  // One option per line: "Name +0.5 | Category | Group". Value, category and group are optional.
   function parseOptions(text) {
     const seen = new Set();
     const out = [];
     for (const raw of text.split(/\r?\n/)) {
       const line = raw.trim();
       if (!line) continue;
-      const [mainRaw, ...rest] = line.split('|');
-      const category = rest.join('|').trim() || null;
+      const [mainRaw, catRaw, groupRaw] = line.split('|');
+      const category = (catRaw || '').trim() || null;
+      const group = (groupRaw || '').trim() || null;
       const m = mainRaw.trim().match(/^(.*?)(?:\s+[+−-]?(\d*\.?\d+))?$/);
       const label = (m ? m[1] : mainRaw).replace(/^"|"$/g, '').trim();
       if (!label) continue;
@@ -23,12 +24,14 @@
       const key = (label + '|' + (value || '')).toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push({ label, value, category });
+      out.push({ label, value, category, group });
     }
     return out;
   }
   function serializeOptions(options) {
-    return options.map(o => o.label + (o.value ? ' +' + o.value : '') + (o.category ? ' | ' + o.category : '')).join('\n');
+    return options.map(o => o.label + (o.value ? ' +' + o.value : '')
+      + (o.category || o.group ? ' | ' + (o.category || '') : '')
+      + (o.group ? ' | ' + o.group : '')).join('\n');
   }
 
   function loadOptions() {
@@ -56,13 +59,14 @@
     if (q.has('rows')) s.rows = parseInt(q.get('rows'), 10) || s.rows;
     if (q.has('signs')) s.signs = q.get('signs') !== '0';
     if (q.has('cats')) s.categories = q.get('cats') !== '0';
+    if (q.has('pool')) s.pool = q.get('pool') !== '0';
     return s;
   }
 
   function create(game) {
     const byId = id => document.getElementById(id);
     const els = {
-      drop: byId('drop-btn'), settings: byId('settings-btn'), overview: byId('overview-btn'), sound: byId('sound-btn'),
+      drop: byId('drop-btn'), settings: byId('settings-btn'), overview: byId('overview-btn'), sound: byId('sound-btn'), follow: byId('follow-btn'),
       statOptions: byId('stat-options'), statSigns: byId('stat-signs'), statOutcomes: byId('stat-outcomes'),
       seed: byId('seed-display'), copy: byId('copy-link-btn'),
       pip: byId('pip'), pipList: byId('pip-list'), pipSign: byId('pip-sign'), pipCategory: byId('pip-category'),
@@ -73,6 +77,7 @@
       save: byId('save-options-btn'), reset: byId('reset-options-btn'), closeSettings: byId('close-settings-btn'),
       setBalls: byId('set-balls'), setRows: byId('set-rows'), setSigns: byId('set-signs'),
       setCats: byId('set-cats'), setCatsNote: byId('set-cats-note'),
+      setPool: byId('set-pool'), setPoolNote: byId('set-pool-note'),
     };
 
     // ---- URL / seed helpers ----
@@ -90,6 +95,7 @@
       setOrDelete('rows', String(s.rows), String(d.rows));
       setOrDelete('signs', s.signs ? '1' : '0', d.signs ? '1' : '0');
       setOrDelete('cats', s.categories ? '1' : '0', d.categories ? '1' : '0');
+      setOrDelete('pool', s.pool ? '1' : '0', d.pool ? '1' : '0');
       p.delete('autodrop');
       return url;
     }
@@ -149,17 +155,24 @@
       if (els.pip.classList.contains('hidden')) return;
       const data = game.binsUnder(PIP_ROWS);
       if (!data) return;
-      const { ball, rows } = data;
+      const { ball, rows, group } = data;
       const s = ball.sign;
       els.pipSign.textContent = s ? (s === '+' ? '+' : MINUS) : (game.layout.hasZones ? '±' : '');
       els.pipSign.className = 'pip-sign ' + (s === '+' ? 'plus' : s === '-' ? 'minus' : '');
       const centre = rows.find(r => r && r.centre);
       const cat = centre && centre.category;
-      els.pipCategory.textContent = cat ? cat.name : (game.balls.length > 1 ? `Ball ${ball.index + 1}` : '');
+      els.pipCategory.textContent = (cat ? cat.name : (game.balls.length > 1 ? `Ball ${ball.index + 1}` : '')) + (group ? ' › ' + group : '');
       els.pipCategory.style.color = cat ? cat.color : 'var(--muted)';
       rows.forEach((row, i) => {
         const li = pipItems[i];
         if (!row) { li.className = 'empty'; li.children[1].textContent = '—'; li.children[2].textContent = ''; li.children[0].style.background = ''; return; }
+        if (row.pooled) {
+          li.className = (row.centre ? 'centre' : '') + ' pooled';
+          li.children[0].style.background = row.category ? row.category.color : '';
+          li.children[1].textContent = row.text;
+          li.children[2].textContent = '';
+          return;
+        }
         const parts = Game.formatParts(row.option, ball.sign, game.layout.hasZones);
         li.className = row.centre ? 'centre' : '';
         li.children[0].style.background = row.category ? row.category.color : '';
@@ -184,11 +197,11 @@
           els.resultText.className = 'result-text ' + signClass(r);
           els.resultText.classList.remove('hidden');
           els.resultList.classList.add('hidden');
-          if (r.category) {
+          if (r.category || r.group) {
             const c = document.createElement('div');
             c.className = 'result-category';
-            c.textContent = r.category.name;
-            c.style.color = r.category.color;
+            c.textContent = (r.category ? r.category.name : '') + (r.group ? ' › ' + r.group : '');
+            if (r.category) c.style.color = r.category.color;
             els.resultText.after(c);
           }
         } else {
@@ -199,7 +212,7 @@
             const li = document.createElement('li');
             li.innerHTML = `<span class="n">#${r.ballIndex + 1}</span><span class="${signClass(r)}"></span><span class="cat"></span>`;
             li.children[1].textContent = r.text;
-            if (r.category) { li.children[2].textContent = r.category.name; li.children[2].style.color = r.category.color; }
+            if (r.category || r.group) { li.children[2].textContent = (r.category ? r.category.name : '') + (r.group ? ' › ' + r.group : ''); if (r.category) li.children[2].style.color = r.category.color; }
             els.resultList.appendChild(li);
           }
         }
@@ -223,6 +236,7 @@
     els.again.addEventListener('click', () => { audio() && audio().unlock(); dropAgain(); });
     els.closeResult.addEventListener('click', () => els.result.classList.add('hidden'));
     els.overview.addEventListener('click', () => game.showOverview());
+    els.follow.addEventListener('click', () => game.refollow());
     els.copy.addEventListener('click', async () => {
       const link = buildUrl(game.seed).toString();
       try {
@@ -257,6 +271,9 @@
       els.count.textContent = `${n} option${n === 1 ? '' : 's'}` + (cats.size ? `, ${cats.size} categories` : '');
       els.setCats.disabled = cats.size < 2;
       els.setCatsNote.textContent = cats.size < 2 ? '(needs categories in the list)' : `(${cats.size} in the list)`;
+      const groups = new Set(parsed.map(o => o.group).filter(Boolean));
+      els.setPool.disabled = groups.size < 1;
+      els.setPoolNote.textContent = groups.size < 1 ? '(needs a group on some options)' : `(${[...groups].join(', ')})`;
     }
     function fillSettingsForm() {
       const s = game.settings;
@@ -269,6 +286,7 @@
       els.setRows.value = String(s.rows);
       els.setSigns.checked = !!s.signs;
       els.setCats.checked = !!s.categories;
+      els.setPool.checked = !!s.pool;
     }
     function readSettingsForm() {
       return {
@@ -276,6 +294,7 @@
         rows: parseInt(els.setRows.value, 10) || global.DEFAULT_SETTINGS.rows,
         signs: els.setSigns.checked,
         categories: els.setCats.checked,
+        pool: els.setPool.checked,
       };
     }
     els.input.addEventListener('input', updateCount);

@@ -16,6 +16,7 @@
       <button id="drop-btn" class="primary">Drop ball</button>
       <button id="settings-btn" title="Options and settings">&#9881; Options</button>
       <button id="overview-btn" title="Zoom out to the whole board">&#128269; Overview</button>
+      <button id="follow-btn" title="Camera back to following the ball (or double-tap the board)">&#127919; Follow</button>
       <button id="sound-btn" title="Toggle sound effects">&#128266; Sound</button>
     </div>
     <div class="hud-center">
@@ -72,12 +73,14 @@
         </label>
         <label class="check"><input type="checkbox" id="set-signs"> <span class="plus">+</span>/<span class="minus">&minus;</span> zones (each option can come out positive or negative)</label>
         <label class="check"><input type="checkbox" id="set-cats"> Category buckets <span id="set-cats-note" class="help small"></span></label>
+        <label class="check"><input type="checkbox" id="set-pool"> Pool range stats into one bin with a mini board underneath <span id="set-pool-note" class="help small"></span></label>
       </div>
 
       <p class="help">
-        One option per line: <code>Name +0.5 | Category</code>. The number is the increment the
+        One option per line: <code>Name +0.5 | Category | Group</code>. The number is the increment the
         <span class="plus">+</span>/<span class="minus">&minus;</span> zone is applied to; the category is optional and
-        groups bins into the mid-board buckets. Bins are shuffled before every drop.
+        groups bins into the mid-board buckets; options sharing a group can be pooled into one bin.
+        Bins are shuffled before every drop.
       </p>
       <textarea id="options-input" spellcheck="false" rows="12"></textarea>
       <div class="panel-row">

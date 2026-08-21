@@ -22,7 +22,7 @@
   renderer.resize();
   ui = UI.create(game);
   camera.snap();
-  camera.enableManualControls();
+  camera.enableManualControls(null, () => game.refollow());
 
   const STEP = 1000 / 60;
   let last = performance.now();

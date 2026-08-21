@@ -61,6 +61,12 @@ window.CONFIG = {
   zoneMinBins: 3,        // zone segment width range, in bins
   zoneMaxBins: 8,
 
+  // Pooled groups: one bin with an open bottom and a mini board underneath
+  subChuteH: 60,          // drop from the main floor to the mini board's ceiling
+  subFirstRowGap: 44,     // ceiling to first mini-board peg row
+  subBinDepth: 420,       // mini-board bin depth (labels)
+  subLabelFont: 15,
+
   // Physics
   substeps: 3,           // physics sub-steps per 60 Hz frame (fast balls must not skip through pegs)
   gravity: 1.0,
@@ -88,4 +94,5 @@ window.DEFAULT_SETTINGS = {
   rows: 90,              // peg rows = board height
   signs: true,           // +/- zone band on/off
   categories: true,      // category buckets on/off (needs categories in the data)
+  pool: true,            // pool grouped options (e.g. Points Allowed ranges) into one bin + mini board
 };

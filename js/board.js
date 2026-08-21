@@ -22,8 +22,41 @@
     Composite.add(statics, [
       Bodies.rectangle(-t / 2, (layout.height - sky) / 2, t, layout.height + sky, { ...staticOpts, label: 'wall' }),
       Bodies.rectangle(layout.width + t / 2, (layout.height - sky) / 2, t, layout.height + sky, { ...staticOpts, label: 'wall' }),
-      Bodies.rectangle(layout.width / 2, layout.binBottom + t / 2, layout.width + 2 * t, t, { ...staticOpts, label: 'floor' }),
     ]);
+    // Main floor in segments, leaving the pooled bins open at the bottom
+    Composite.add(statics, layout.floorSegments().map(seg => {
+      // extend the outer segments under the side walls, but never into an opening
+      const left = seg.x0 === 0 ? -t : seg.x0;
+      const right = seg.x1 === layout.width ? layout.width + t : seg.x1;
+      return Bodies.rectangle((left + right) / 2, layout.binBottom + t / 2, right - left, t, { ...staticOpts, label: 'floor' });
+    }));
+
+    // Mini boards under pooled bins: chute, ceiling, side walls, pegs, dividers, floor
+    for (const sub of layout.subBoards) {
+      const bodies = [];
+      const cw = cfg.dividerWidth;
+      const chuteH = sub.top - layout.binBottom;
+      bodies.push(Bodies.rectangle(sub.cx - cfg.binWidth / 2, layout.binBottom + chuteH / 2, cw, chuteH, { ...staticOpts, label: 'divider' }));
+      bodies.push(Bodies.rectangle(sub.cx + cfg.binWidth / 2, layout.binBottom + chuteH / 2, cw, chuteH, { ...staticOpts, label: 'divider' }));
+      const lw = sub.cx - cfg.binWidth / 2 - sub.x0, rw = sub.x1 - (sub.cx + cfg.binWidth / 2);
+      if (lw > 0) bodies.push(Bodies.rectangle(sub.x0 + lw / 2, sub.top, lw, cw, { ...staticOpts, label: 'wall' }));
+      if (rw > 0) bodies.push(Bodies.rectangle(sub.x1 - rw / 2, sub.top, rw, cw, { ...staticOpts, label: 'wall' }));
+      const wallH = sub.binBottom - sub.top;
+      bodies.push(Bodies.rectangle(sub.x0, sub.top + wallH / 2, cw, wallH, { ...staticOpts, label: 'wall' }));
+      bodies.push(Bodies.rectangle(sub.x1, sub.top + wallH / 2, cw, wallH, { ...staticOpts, label: 'wall' }));
+      bodies.push(Bodies.rectangle(sub.cx, sub.binBottom + t / 2, sub.x1 - sub.x0 + 2 * cw, t, { ...staticOpts, label: 'floor' }));
+      for (let j = 1; j < sub.k; j++) {
+        bodies.push(Bodies.rectangle(sub.x0 + j * cfg.binWidth, sub.binTop + cfg.subBinDepth / 2, cw, cfg.subBinDepth,
+          { ...staticOpts, label: 'divider', chamfer: { radius: cw / 2 } }));
+      }
+      for (let r = 0; r < sub.rows; r++) {
+        for (let c = 0; c < sub.pegCountInRow(r); c++) {
+          const peg = sub.pegAt(r, c);
+          if (peg) bodies.push(makePegBody(peg));
+        }
+      }
+      Composite.add(statics, bodies);
+    }
 
     // Bin dividers (the two outermost coincide with the walls)
     const dividers = [];

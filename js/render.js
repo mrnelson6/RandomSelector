@@ -72,6 +72,7 @@
       drawZones(game, view);
       drawPegs(game, view);
       drawBins(game, view);
+      drawSubBoards(game, view);
       drawLauncher(game, view);
       drawBalls(game);
     }
@@ -278,7 +279,26 @@
       const winning = new Set(balls.filter(b => b.landed).map(b => b.bin));
 
       ctx.fillStyle = COLORS.binFloor;
-      ctx.fillRect(i0 * cfg.binWidth, layout.binBottom - 8, (i1 - i0 + 1) * cfg.binWidth, 8);
+      for (const seg of layout.floorSegments()) {
+        const fx0 = Math.max(seg.x0, i0 * cfg.binWidth), fx1 = Math.min(seg.x1, (i1 + 1) * cfg.binWidth);
+        if (fx1 > fx0) ctx.fillRect(fx0, layout.binBottom - 8, fx1 - fx0, 8);
+      }
+      // Pooled bins: faint glow and an arrow pointing into the chute
+      for (let i = i0; i <= i1; i++) {
+        if (!layout.isPooled(i)) continue;
+        const b = layout.binRect(i);
+        const grad = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(1, 'rgba(255, 179, 0, 0.22)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        if (zoom > 0.25) {
+          ctx.fillStyle = COLORS.ball;
+          ctx.font = `900 ${28}px system-ui, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('▾', b.cx, b.y + b.h - 24);
+        }
+      }
 
       for (const bin of winning) {
         if (bin < i0 || bin > i1) continue;
@@ -301,8 +321,8 @@
       const signColor = part => part.startsWith('+') ? COLORS.plus : part.startsWith('−') ? COLORS.minus : '#9aa0b4';
       for (let i = i0; i <= i1; i++) {
         const b = layout.binRect(i);
-        const { head, name, tail } = game.labelFor(i);
-        const nameColor = winning.has(i) ? COLORS.ball : COLORS.label;
+        const { head, name, tail, pooled } = game.labelFor(i);
+        const nameColor = winning.has(i) || pooled ? COLORS.ball : COLORS.label;
         ctx.save();
         ctx.translate(b.cx, b.y + 14);
         ctx.rotate(Math.PI / 2);
@@ -326,6 +346,92 @@
           ctx.fillText(' ' + tail, x, 0);
         }
         ctx.restore();
+      }
+    }
+
+    function drawSubBoards(game, view) {
+      const { layout, cfg, camera, balls } = game;
+      if (!layout.subBoards.length || layout.binBottom > view.y1) return;
+      const zoom = camera.zoom;
+      const w = cfg.binWidth;
+      for (const sub of layout.subBoards) {
+        if (sub.x1 < view.x0 || sub.x0 > view.x1 || sub.top > view.y1) continue;
+        // Chute from the open bin down to the mini board
+        ctx.fillStyle = COLORS.board;
+        ctx.fillRect(sub.cx - w / 2, layout.binBottom, w, sub.top - layout.binBottom);
+        ctx.fillStyle = COLORS.divider;
+        ctx.fillRect(sub.cx - w / 2 - 3, layout.binBottom, 6, sub.top - layout.binBottom);
+        ctx.fillRect(sub.cx + w / 2 - 3, layout.binBottom, 6, sub.top - layout.binBottom);
+        // Box
+        ctx.fillStyle = COLORS.board;
+        ctx.fillRect(sub.x0, sub.top, sub.x1 - sub.x0, sub.binBottom - sub.top);
+        ctx.lineWidth = 4 / Math.max(zoom, 0.2);
+        ctx.strokeStyle = COLORS.catWall;
+        ctx.strokeRect(sub.x0, sub.top, sub.x1 - sub.x0, sub.binBottom - sub.top);
+        // Ceiling with the opening
+        ctx.fillStyle = COLORS.catWall;
+        if (sub.cx - w / 2 > sub.x0) ctx.fillRect(sub.x0, sub.top - 3, sub.cx - w / 2 - sub.x0, 6);
+        if (sub.x1 > sub.cx + w / 2) ctx.fillRect(sub.cx + w / 2, sub.top - 3, sub.x1 - sub.cx - w / 2, 6);
+        // Group title on the ceiling
+        if (zoom > 0.2) {
+          ctx.fillStyle = COLORS.ball;
+          ctx.font = `800 22px system-ui, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.fillText(sub.group, sub.cx, sub.top - 8);
+        }
+        // Pegs
+        ctx.fillStyle = COLORS.peg;
+        for (let r = 0; r < sub.rows; r++) {
+          for (let c = 0; c < sub.pegCountInRow(r); c++) {
+            const peg = sub.pegAt(r, c);
+            if (!peg) continue;
+            ctx.fillStyle = peg.kind === 'bump' ? COLORS.catWall : COLORS.peg;
+            ctx.beginPath(); ctx.arc(peg.x, peg.y, Math.max(peg.r, 0.8 / zoom), 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        // Bins
+        const winning = new Set(balls.filter(b => b.landed && b.sub === sub).map(b => b.subBin));
+        for (const j of winning) {
+          const b = sub.binRect(j);
+          ctx.fillStyle = COLORS.win;
+          ctx.fillRect(b.x, b.y, b.w, b.h);
+        }
+        ctx.fillStyle = COLORS.binFloor;
+        ctx.fillRect(sub.x0, sub.binBottom - 8, sub.x1 - sub.x0, 8);
+        ctx.fillStyle = COLORS.divider;
+        for (let j = 1; j < sub.k; j++) ctx.fillRect(sub.x0 + j * w - 3, sub.binTop, 6, cfg.subBinDepth);
+        const fontSize = cfg.subLabelFont;
+        if (fontSize * zoom < 4.5) continue;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const maxLen = cfg.subBinDepth - 24;
+        const signColor = part => part.startsWith('+') ? COLORS.plus : part.startsWith('−') ? COLORS.minus : '#9aa0b4';
+        for (let j = 0; j < sub.k; j++) {
+          const b = sub.binRect(j);
+          const { head, name, tail } = game.labelForSub(sub, j);
+          ctx.save();
+          ctx.translate(b.cx, b.y + 12);
+          ctx.rotate(Math.PI / 2);
+          let x = 0;
+          if (head) {
+            ctx.font = `800 ${fontSize + 2}px system-ui, sans-serif`;
+            ctx.fillStyle = signColor(head);
+            ctx.fillText(head, x, 0);
+            x += ctx.measureText(head).width + 2;
+          }
+          ctx.font = `800 ${fontSize}px system-ui, sans-serif`;
+          const tailW = tail ? ctx.measureText(' ' + tail).width : 0;
+          ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+          ctx.fillStyle = winning.has(j) ? COLORS.ball : COLORS.label;
+          const shown = truncate(name, maxLen - x - tailW);
+          ctx.fillText(shown, x, 0);
+          x += ctx.measureText(shown).width;
+          if (tail) {
+            ctx.font = `800 ${fontSize}px system-ui, sans-serif`;
+            ctx.fillStyle = signColor(tail);
+            ctx.fillText(' ' + tail, x, 0);
+          }
+          ctx.restore();
+        }
       }
     }
 

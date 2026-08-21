@@ -1,10 +1,12 @@
 // Default option list: the "A Clash of Units" scoring-rule modification pool.
-// Each entry is { label, value, category }. The value is the increment; the
+// Each entry is { label, value, category, group? }. The value is the increment; the
 // +/- zones on the board decide whether it is applied as +value or -value.
 // Category groups the bins into the mid-board buckets (can be turned off).
+// Options sharing a `group` can be pooled into one bin with a mini board
+// underneath (the "Pool range stats" setting), e.g. the Points Allowed ranges.
 //
 // Edit this file, commit and push to update the site. Visitors can also paste
-// their own list in the Options panel (one per line: "Name +0.5 | Category").
+// their own list in the Options panel (one per line: "Name +0.5 | Category | Group").
 
 window.DEFAULT_OPTIONS = [
   // Roster
@@ -93,23 +95,23 @@ window.DEFAULT_OPTIONS = [
   { label: "PAT Missed", value: "10", category: "Kicking" },
   // Team Defense
   { label: "Defense TD", value: "10", category: "Team Defense" },
-  { label: "Points Allowed (0)", value: "50", category: "Team Defense" },
-  { label: "Points Allowed (1-6)", value: "10", category: "Team Defense" },
-  { label: "Points Allowed (7-13)", value: "10", category: "Team Defense" },
-  { label: "Points Allowed (14-20)", value: "5", category: "Team Defense" },
-  { label: "Points Allowed (21-27)", value: "5", category: "Team Defense" },
-  { label: "Points Allowed (28-34)", value: "5", category: "Team Defense" },
-  { label: "Points Allowed (35+)", value: "10", category: "Team Defense" },
+  { label: "Points Allowed (0)", value: "50", category: "Team Defense", group: "Points Allowed" },
+  { label: "Points Allowed (1-6)", value: "10", category: "Team Defense", group: "Points Allowed" },
+  { label: "Points Allowed (7-13)", value: "10", category: "Team Defense", group: "Points Allowed" },
+  { label: "Points Allowed (14-20)", value: "5", category: "Team Defense", group: "Points Allowed" },
+  { label: "Points Allowed (21-27)", value: "5", category: "Team Defense", group: "Points Allowed" },
+  { label: "Points Allowed (28-34)", value: "5", category: "Team Defense", group: "Points Allowed" },
+  { label: "Points Allowed (35+)", value: "10", category: "Team Defense", group: "Points Allowed" },
   { label: "Points per Point Allowed", value: "1", category: "Team Defense" },
-  { label: "Less Than 100 Total Yards Allowed", value: "100", category: "Team Defense" },
-  { label: "100-199 Yards Allowed", value: "10", category: "Team Defense" },
-  { label: "200-299 Yards Allowed", value: "5", category: "Team Defense" },
-  { label: "300-349 Yards Allowed", value: "5", category: "Team Defense" },
-  { label: "350-399 Yards Allowed", value: "5", category: "Team Defense" },
-  { label: "400-449 Yards Allowed", value: "10", category: "Team Defense" },
-  { label: "450-499 Yards Allowed", value: "10", category: "Team Defense" },
-  { label: "500-549 Yards Allowed", value: "10", category: "Team Defense" },
-  { label: "550+ Yards Allowed", value: "50", category: "Team Defense" },
+  { label: "Less Than 100 Total Yards Allowed", value: "100", category: "Team Defense", group: "Yards Allowed" },
+  { label: "100-199 Yards Allowed", value: "10", category: "Team Defense", group: "Yards Allowed" },
+  { label: "200-299 Yards Allowed", value: "5", category: "Team Defense", group: "Yards Allowed" },
+  { label: "300-349 Yards Allowed", value: "5", category: "Team Defense", group: "Yards Allowed" },
+  { label: "350-399 Yards Allowed", value: "5", category: "Team Defense", group: "Yards Allowed" },
+  { label: "400-449 Yards Allowed", value: "10", category: "Team Defense", group: "Yards Allowed" },
+  { label: "450-499 Yards Allowed", value: "10", category: "Team Defense", group: "Yards Allowed" },
+  { label: "500-549 Yards Allowed", value: "10", category: "Team Defense", group: "Yards Allowed" },
+  { label: "550+ Yards Allowed", value: "50", category: "Team Defense", group: "Yards Allowed" },
   { label: "Points per Yards Allowed", value: "0.05", category: "Team Defense" },
   { label: "3 and Out", value: "3", category: "Team Defense" },
   { label: "4th Down Stop", value: "5", category: "Team Defense" },

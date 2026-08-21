@@ -64,9 +64,11 @@
         label: String(o.label || '').trim(),
         value: o.value != null && o.value !== '' ? String(o.value) : null,
         category: o.category ? String(o.category).trim() : null,
+        group: o.group ? String(o.group).trim() : null,
       })).filter(o => o.label);
     }
     function hasCategoryData() { return game.options.some(o => o.category); }
+    function hasGroupData() { return game.options.some(o => o.group); }
     function setSettings(s) {
       game.settings = { ...game.settings, ...s };
       game.settings.balls = Math.min(cfg.maxBalls, Math.max(1, game.settings.balls | 0 || 1));
@@ -78,9 +80,9 @@
       if (game.board) game.board.destroy();
       game.seed = seed;
       game.rng = RNG.createRng(seed);
-      const settings = { ...game.settings, categories: game.settings.categories && hasCategoryData() };
+      const settings = { ...game.settings, categories: game.settings.categories && hasCategoryData(), pool: game.settings.pool && hasGroupData() };
       game.arrangement = Layout.arrange(game.options, game.rng, settings);
-      game.layout = Layout.build(game.arrangement.n, cfg, settings, game.arrangement.wallCols);
+      game.layout = Layout.build(game.arrangement, cfg, settings);
       game.layout.randomize(game.rng);
       game.zones = game.layout.makeZones(game.rng);
       game.launch = game.layout.launchPoint(game.rng);
@@ -275,11 +277,18 @@
 
         const speed = body.speed;
         // Once the ball is this deep it can no longer hop a divider, so the bin is decided.
-        const inBin = p.y > layout.binTop + cfg.ballRadius * 3;
+        let inBin = false, sub = null;
+        if (p.y > layout.binBottom) {
+          sub = layout.subBoardAt(p.x, p.y);
+          inBin = !!sub && p.y > sub.binTop + cfg.ballRadius * 3;
+          if (sub && !ball.inSub) { ball.inSub = sub; sfx('category'); }
+        } else if (p.y > layout.binTop + cfg.ballRadius * 3) {
+          inBin = !layout.isPooled(layout.binIndexAt(p.x)); // pooled bins are open: keep falling
+        }
         if (inBin) {
           ball.binTime += dt;
           ball.restCount = speed < cfg.restSpeed ? ball.restCount + 1 : 0;
-          if (ball.restCount >= cfg.restFrames || ball.binTime >= cfg.maxBinSeconds) land(ball);
+          if (ball.restCount >= cfg.restFrames || ball.binTime >= cfg.maxBinSeconds) land(ball, sub);
         } else {
           // Nudge a ball that has balanced on a peg or a wall top.
           ball.stuckCount = speed < cfg.stuckSpeed ? ball.stuckCount + 1 : 0;
@@ -293,15 +302,25 @@
       }
     }
 
-    function optionAtBin(i) { return game.options[game.arrangement.bins[i]]; }
+    // Option in main bin i, or null when the slot is a pooled group.
+    function optionAtBin(i) {
+      const slot = game.arrangement.bins[i];
+      return typeof slot === 'object' ? null : game.options[slot];
+    }
+    function slotAt(i) { return game.arrangement.bins[i]; }
+    function optionAtSub(sub, j) { return game.options[sub.members[j]]; }
 
-    function land(ball) {
-      const bin = game.layout.binIndexAt(ball.body.position.x);
-      const option = optionAtBin(bin);
+    function land(ball, sub) {
+      const bin = sub ? sub.slot : game.layout.binIndexAt(ball.body.position.x);
+      const subBin = sub ? sub.binIndexAt(ball.body.position.x) : null;
+      const option = sub ? optionAtSub(sub, subBin) : optionAtBin(bin);
       ball.landed = true;
       ball.bin = bin;
+      ball.subBin = subBin;
+      ball.sub = sub || null;
       ball.result = {
-        ballIndex: ball.index, seed: game.seed, sign: ball.sign, option, bin,
+        ballIndex: ball.index, seed: game.seed, sign: ball.sign, option, bin, subBin,
+        group: sub ? sub.group : null,
         category: game.layout.categoryAt(game.arrangement.categories, bin),
         text: formatResult(option, ball.sign, game.layout.hasZones),
       };
@@ -313,11 +332,13 @@
         camera.manual = false;
         camera.posRate = 3; camera.zoomRate = 2;
         if (game.balls.length === 1) {
-          camera.fitRect(b.x - 4 * b.w, b.y - 200, 9 * b.w, b.h + 260, 40);
+          if (sub) camera.fitRect(sub.x0 - b.w, game.layout.binTop - 120, sub.x1 - sub.x0 + 2 * b.w, sub.binBottom - game.layout.binTop + 160, 40);
+          else camera.fitRect(b.x - 4 * b.w, b.y - 200, 9 * b.w, b.h + 260, 40);
         } else {
           const xs = game.balls.map(bb => bb.bin * b.w);
           const x0 = Math.min(...xs) - 2 * b.w, x1 = Math.max(...xs) + 3 * b.w;
-          camera.fitRect(x0, b.y - 200, x1 - x0, b.h + 260, 40);
+          const yBottom = Math.max(...game.balls.map(bb => bb.sub ? bb.sub.binBottom : game.layout.binBottom));
+          camera.fitRect(x0, b.y - 200, x1 - x0, yBottom - b.y + 60, 40);
         }
         setState('landed');
         onResult && onResult(game.results);
@@ -341,28 +362,50 @@
 
     // Label shown inside bin i. With a single ball the sign is applied once known.
     function labelFor(i) {
-      const option = optionAtBin(i);
+      const slot = slotAt(i);
+      if (typeof slot === 'object') {
+        return { head: '', name: slot.group + '  ▾ ' + slot.members.length, tail: '', text: slot.group, pooled: true };
+      }
       const sign = game.balls.length === 1 ? game.balls[0].sign : null;
-      return formatParts(option, sign, game.layout.hasZones);
+      return formatParts(game.options[slot], sign, game.layout.hasZones);
+    }
+    // Label for sub-bin j of a mini board.
+    function labelForSub(sub, j) {
+      const sign = game.balls.length === 1 ? game.balls[0].sign : null;
+      return formatParts(optionAtSub(sub, j), sign, game.layout.hasZones);
     }
 
     // The `count` bins centred under the focus ball, for the PIP panel.
     function binsUnder(count) {
       const ball = focusBall();
       if (!ball) return null;
-      const centre = game.layout.binIndexAt(ball.body.position.x);
+      const p = ball.body.position;
       const half = Math.floor(count / 2);
       const rows = [];
+      const sub = ball.sub || (p.y > game.layout.binBottom ? game.layout.subBoardAt(p.x, p.y) : null);
+      if (sub) {
+        const centre = sub.binIndexAt(p.x);
+        const category = game.layout.categoryAt(game.arrangement.categories, sub.slot);
+        for (let j = centre - half; j <= centre + half; j++) {
+          if (j < 0 || j >= sub.k) { rows.push(null); continue; }
+          const option = optionAtSub(sub, j);
+          rows.push({ index: j, option, centre: j === centre, text: formatResult(option, ball.sign, game.layout.hasZones), category });
+        }
+        return { ball, rows, group: sub.group };
+      }
+      const centre = game.layout.binIndexAt(p.x);
       for (let i = centre - half; i <= centre + half; i++) {
         if (i < 0 || i >= game.layout.n) { rows.push(null); continue; }
-        const option = optionAtBin(i);
-        rows.push({
-          index: i, option, centre: i === centre,
-          text: formatResult(option, ball.sign, game.layout.hasZones),
-          category: game.layout.categoryAt(game.arrangement.categories, i),
-        });
+        const slot = slotAt(i);
+        const category = game.layout.categoryAt(game.arrangement.categories, i);
+        if (typeof slot === 'object') {
+          rows.push({ index: i, option: null, centre: i === centre, text: slot.group + ' (' + slot.members.length + ') ▾', pooled: true, category });
+        } else {
+          const option = game.options[slot];
+          rows.push({ index: i, option, centre: i === centre, text: formatResult(option, ball.sign, game.layout.hasZones), category });
+        }
       }
-      return { ball, rows };
+      return { ball, rows, group: null };
     }
 
     function updateCamera() {
@@ -381,6 +424,13 @@
       }
     }
 
+    // Hand the camera back to automatic following (after a manual pan/zoom).
+    function refollow() {
+      camera.manual = false;
+      camera.posRate = 4; camera.zoomRate = 3;
+      if (game.state === 'ready') camera.fitRect(0, 0, game.layout.width, game.layout.height, 60);
+    }
+
     function showOverview() {
       camera.manual = false;
       camera.posRate = 3; camera.zoomRate = 2.5;
@@ -388,8 +438,8 @@
     }
 
     return Object.assign(game, {
-      engine, setOptions, setSettings, hasCategoryData, prepare, drop, afterStep, updateCamera,
-      showOverview, focusBall, labelFor, binsUnder, optionAtBin,
+      engine, setOptions, setSettings, hasCategoryData, hasGroupData, prepare, drop, afterStep, updateCamera,
+      showOverview, refollow, focusBall, labelFor, labelForSub, binsUnder, optionAtBin, slotAt,
     });
   }
 

@@ -43,7 +43,8 @@ chime (rising for +, falling for −), a whoosh entering a lane, and a fanfare a
 you press something.
 
 The camera follows the ball; the **"Under the ball"** panel lists the seven bins directly beneath
-it, with the sign applied once it's known. Drag to pan and scroll to zoom whenever you like.
+it, with the sign applied once it's known. Drag to pan, scroll or pinch to zoom; **double-tap /
+double-click** the board (or press Follow) to hand the camera back.
 
 ## Settings (⚙ Options)
 
@@ -53,6 +54,7 @@ it, with the sign applied once it's known. Drag to pan and scroll to zoom whenev
 | Board height | Number of peg rows: 36 (short, ~15 s) up to 180. Default is 90 (~30 s a drop). |
 | +/− zones | Turn the sign band off to draw plain options. |
 | Category buckets | Turn the mid-board buckets off for one flat shuffle. Needs categories in the list. |
+| Pool range stats | Options that share a *group* (by default the 7 Points Allowed and 9 Yards Allowed ranges) collapse into **one** bin with an open bottom; a mini Plinko board hangs under the floor and spills into the group's sub-bins. Team Defense shrinks from 40 bins to 26. Each sub-bin gets 1/k of that bin's chance. |
 
 Settings and custom lists are saved in your browser only. Share links carry the settings too.
 
@@ -86,7 +88,8 @@ window.DEFAULT_OPTIONS = [
 ```
 
 Commit and push and the site updates. In the Options panel the same list is shown one per line as
-`Name +0.04 | Category`, and visitors can paste their own.
+`Name +0.04 | Category | Group`, and visitors can paste their own. `group` is optional and only
+matters with *Pool range stats* on.
 
 The default list was generated from `random_srm_pool.csv` (the options) and
 `Appendix _A__ … Rules by Year.csv` (the section headers that became the categories).

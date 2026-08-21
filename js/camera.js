@@ -89,35 +89,73 @@
 
     // Manual controls (drag to pan, wheel to zoom). Switching to manual mode
     // stops automatic following until the game re-takes control.
-    function enableManualControls(onManual) {
-      let dragging = false, lastX = 0, lastY = 0, moved = 0;
+    // Drag to pan, wheel or pinch to zoom, double-tap/double-click to go back
+    // to automatic following.
+    function enableManualControls(onManual, onDoubleTap) {
+      const pointers = new Map(); // pointerId -> {x, y}
+      let moved = 0, pinchDist = 0, lastTap = 0, lastTapX = 0, lastTapY = 0;
+
+      function zoomAt(sx, sy, factor) {
+        const before = screenToWorld(sx, sy);
+        cam.zoom = cam.tzoom = Math.min(4, Math.max(0.02, cam.zoom * factor));
+        const after = screenToWorld(sx, sy);
+        cam.x = cam.tx = cam.x + (before.x - after.x);
+        cam.y = cam.ty = cam.y + (before.y - after.y);
+      }
+
       canvas.addEventListener('pointerdown', e => {
-        dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         canvas.setPointerCapture(e.pointerId);
+        if (pointers.size === 1) moved = 0;
+        if (pointers.size === 2) {
+          const [a, b] = [...pointers.values()];
+          pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+        }
       });
       canvas.addEventListener('pointermove', e => {
-        if (!dragging) return;
-        const dx = e.clientX - lastX, dy = e.clientY - lastY;
-        lastX = e.clientX; lastY = e.clientY;
+        const p = pointers.get(e.pointerId);
+        if (!p) return;
+        const dx = e.clientX - p.x, dy = e.clientY - p.y;
+        p.x = e.clientX; p.y = e.clientY;
         moved += Math.abs(dx) + Math.abs(dy);
-        if (moved > 4) {
+        if (pointers.size === 2) {
+          const [a, b] = [...pointers.values()];
+          const dist = Math.hypot(a.x - b.x, a.y - b.y);
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+          cam.manual = true; onManual && onManual();
+          if (pinchDist > 0) zoomAt(mx, my, dist / pinchDist);
+          pinchDist = dist;
+          // pan by half of this pointer's movement (the other pointer contributes its half)
+          cam.tx = cam.x = cam.x - dx / cam.zoom / 2;
+          cam.ty = cam.y = cam.y - dy / cam.zoom / 2;
+        } else if (pointers.size === 1 && moved > 4) {
           cam.manual = true; onManual && onManual();
           cam.tx = cam.x = cam.x - dx / cam.zoom;
           cam.ty = cam.y = cam.y - dy / cam.zoom;
         }
       });
-      const end = e => { dragging = false; };
+      const end = e => {
+        const wasSingle = pointers.size === 1;
+        pointers.delete(e.pointerId);
+        pinchDist = 0;
+        if (wasSingle && moved <= 6 && e.type === 'pointerup') {
+          const now = performance.now();
+          if (now - lastTap < 350 && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 40) {
+            lastTap = 0;
+            cam.manual = false;
+            onDoubleTap && onDoubleTap();
+          } else {
+            lastTap = now; lastTapX = e.clientX; lastTapY = e.clientY;
+          }
+        }
+      };
       canvas.addEventListener('pointerup', end);
       canvas.addEventListener('pointercancel', end);
+      canvas.addEventListener('pointerleave', e => { pointers.delete(e.pointerId); pinchDist = 0; });
       canvas.addEventListener('wheel', e => {
         e.preventDefault();
         cam.manual = true; onManual && onManual();
-        const before = screenToWorld(e.clientX, e.clientY);
-        const factor = Math.exp(-e.deltaY * 0.0015);
-        cam.zoom = cam.tzoom = Math.min(4, Math.max(0.02, cam.zoom * factor));
-        const after = screenToWorld(e.clientX, e.clientY);
-        cam.x = cam.tx = cam.x + (before.x - after.x);
-        cam.y = cam.ty = cam.y + (before.y - after.y);
+        zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
       }, { passive: false });
     }
 

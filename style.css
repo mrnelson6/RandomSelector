@@ -240,6 +240,7 @@ code {
 #pip li.centre { background: rgba(255, 179, 0, 0.18); color: var(--text); font-weight: 600; }
 #pip li.centre::before { content: "▶"; color: var(--accent); font-size: 10px; }
 #pip li.empty { opacity: 0.25; }
+#pip li.pooled .name { color: var(--accent); font-weight: 700; }
 
 /* Multi-ball result list */
 .result-list { list-style: none; margin: 8px 0 4px; padding: 0 4px; text-align: left; max-height: 50vh; overflow-y: auto; }

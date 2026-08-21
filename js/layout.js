@@ -16,50 +16,156 @@
   ];
 
   // Decide which option goes in which bin for this run.
-  // With categories on, options are grouped into contiguous blocks (random
+  // `bins` is a list of slots: either an option index (a normal bin) or
+  // { group, members } (a pooled bin with a mini board underneath).
+  // With categories on, slots are grouped into contiguous blocks (random
   // block order, random order inside each block). Otherwise one flat shuffle.
   function arrange(options, rng, settings) {
-    const n = options.length;
     const useCats = settings.categories && options.some(o => o.category);
-    if (!useCats) {
-      const bins = rng.shuffle(options.map((_, i) => i));
-      return { n, bins, categories: [], wallCols: new Set() };
+    const usePool = settings.pool && options.some(o => o.group);
+
+    // Turn a set of option indices into shuffled slots, pooling groups if enabled.
+    function slotsFor(indices) {
+      if (!usePool) return rng.shuffle(indices);
+      const byGroup = new Map();
+      const singles = [];
+      for (const i of indices) {
+        const g = options[i].group;
+        if (g) { if (!byGroup.has(g)) byGroup.set(g, []); byGroup.get(g).push(i); }
+        else singles.push(i);
+      }
+      const slots = rng.shuffle(singles);
+      for (const [group, members] of byGroup) {
+        if (members.length < 2) { slots.splice(rng.int(0, slots.length), 0, ...members); continue; }
+        slots.splice(rng.int(0, slots.length), 0, { group, members: rng.shuffle(members) });
+      }
+      return slots;
     }
-    const groups = new Map();
-    options.forEach((o, i) => {
-      const key = o.category || 'Other';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(i);
-    });
-    const names = rng.shuffle([...groups.keys()]);
-    // Colours are assigned by the data's own category order so they stay stable run to run.
-    const colorIndex = new Map([...groups.keys()].map((k, i) => [k, i]));
+
+    const blocks = []; // [{ name, indices }]
+    if (useCats) {
+      const byCat = new Map();
+      options.forEach((o, i) => {
+        const key = o.category || 'Other';
+        if (!byCat.has(key)) byCat.set(key, []);
+        byCat.get(key).push(i);
+      });
+      const colorIndex = new Map([...byCat.keys()].map((k, i) => [k, i]));
+      for (const name of rng.shuffle([...byCat.keys()])) {
+        blocks.push({ name, indices: byCat.get(name), color: CATEGORY_COLORS[colorIndex.get(name) % CATEGORY_COLORS.length] });
+      }
+    } else {
+      blocks.push({ name: null, indices: options.map((_, i) => i) });
+    }
+
     const bins = [];
     const categories = [];
     const wallCols = new Set();
-    for (const name of names) {
-      const members = rng.shuffle(groups.get(name));
+    for (const b of blocks) {
       const start = bins.length;
-      bins.push(...members);
-      categories.push({
-        name, start, end: bins.length, count: members.length,
-        color: CATEGORY_COLORS[colorIndex.get(name) % CATEGORY_COLORS.length],
-      });
-      if (bins.length < n) wallCols.add(bins.length);
+      bins.push(...slotsFor(b.indices));
+      if (b.name) categories.push({ name: b.name, start, end: bins.length, count: b.indices.length, color: b.color });
     }
-    return { n, bins, categories, wallCols };
+    const n = bins.length;
+    if (useCats) for (const c of categories) if (c.end < n) wallCols.add(c.end);
+
+    // Pooled slots must keep their mini boards (k bins wide, centred) inside
+    // the board and clear of each other. Swap offenders with a plain slot in
+    // the same block until it works (or give up after a while).
+    if (usePool) {
+      const blockOf = i => categories.find(c => i >= c.start && i < c.end) || { start: 0, end: n };
+      const half = s => (typeof s === 'object' ? s.members.length / 2 : 0);
+      const bad = i => {
+        const s = bins[i];
+        if (typeof s !== 'object') return false;
+        const h = half(s);
+        if (i + 0.5 - h < 0 || i + 0.5 + h > n) return true;
+        for (let j = 0; j < n; j++) {
+          if (j === i || typeof bins[j] !== 'object') continue;
+          if (Math.abs(j - i) < h + half(bins[j]) + 1) return true;
+        }
+        return false;
+      };
+      for (let tries = 0; tries < 400; tries++) {
+        const i = bins.findIndex((_, idx) => bad(idx));
+        if (i < 0) break;
+        const blk = blockOf(i);
+        const j = rng.int(blk.start, blk.end - 1);
+        if (typeof bins[j] === 'object') continue;
+        [bins[i], bins[j]] = [bins[j], bins[i]];
+      }
+    }
+    return { n, bins, categories, wallCols, pooled: usePool };
   }
 
-  function build(optionCount, cfg, settings, wallCols) {
-    const n = Math.max(1, optionCount);
+  function build(arrangement, cfg, settings) {
+    const n = Math.max(1, arrangement.n);
     const w = cfg.binWidth;
     const rows = Math.max(12, settings.rows | 0);
     const width = n * w;
     const lastRowY = cfg.topPadding + (rows - 1) * cfg.rowHeight;
     const binTop = lastRowY + cfg.rowHeight * 0.5;
     const binBottom = binTop + cfg.binDepth;
-    const height = binBottom;
-    const walls = wallCols || new Set();
+    const walls = arrangement.wallCols || new Set();
+    const slots = arrangement.bins;
+    const slotAt = i => slots[i];
+    const isPooled = i => typeof slots[i] === 'object';
+
+    // ---- Mini boards under pooled bins ----
+    // A pooled bin has no floor: the ball drops through a short chute into a
+    // small Plinko board k bins wide (k = group size) with k-1 peg rows, so
+    // every sub-bin is reachable, and lands in one of the group's sub-bins.
+    const subBoards = [];
+    slots.forEach((slot, i) => {
+      if (typeof slot !== 'object') return;
+      const k = slot.members.length;
+      const cx = i * w + w / 2;
+      const x0 = cx - k * w / 2, x1 = cx + k * w / 2;
+      const top = binBottom + cfg.subChuteH;
+      const subRows = Math.max(1, k - 1);
+      const rowYs = r => top + cfg.subFirstRowGap + r * cfg.rowHeight;
+      const rowOff = r => (((subRows - 1 - r) % 2) === 0) ? 0 : w / 2; // last row aligned with dividers
+      const countInRow = r => rowOff(r) === 0 ? k + 1 : k;
+      const sBinTop = rowYs(subRows - 1) + cfg.rowHeight * 0.5;
+      const sBinBottom = sBinTop + cfg.subBinDepth;
+      function subPegAt(r, c) {
+        if (r < 0 || r >= subRows || c < 0 || c >= countInRow(r)) return null;
+        const off = rowOff(r);
+        const y = rowYs(r);
+        let x = x0 + off + c * w;
+        if (off === 0) {
+          if (c === 0 || c === k) return { x, y, r: cfg.wallBumpRadius, kind: 'bump' };
+        } else if (c === 0) x = x0 + cfg.wallPegShift;
+        else if (c === k - 1) x = x1 - cfg.wallPegShift;
+        return { x, y, r: cfg.pegRadius, kind: 'peg' };
+      }
+      subBoards.push({
+        slot: i, group: slot.group, members: slot.members, k, cx, x0, x1, top,
+        rows: subRows, rowY: rowYs, rowOffset: rowOff, pegCountInRow: countInRow, pegAt: subPegAt,
+        binTop: sBinTop, binBottom: sBinBottom,
+        binIndexAt: x => Math.min(k - 1, Math.max(0, Math.floor((x - x0) / w))),
+        binRect: j => ({ x: x0 + j * w, y: sBinTop, w, h: cfg.subBinDepth, cx: x0 + j * w + w / 2 }),
+      });
+    });
+    const subBoardBySlot = new Map(subBoards.map(s => [s.slot, s]));
+    function subBoardAt(x, y) {
+      if (y <= binBottom) return null;
+      for (const s of subBoards) if (x >= s.x0 - 8 && x <= s.x1 + 8) return s;
+      return null;
+    }
+    // The main floor, minus the openings under pooled bins.
+    function floorSegments() {
+      const segs = [];
+      let x = 0;
+      for (const s of subBoards.slice().sort((a, b) => a.slot - b.slot)) {
+        const ox0 = s.slot * w, ox1 = ox0 + w;
+        if (ox0 > x) segs.push({ x0: x, x1: ox0 });
+        x = ox1;
+      }
+      if (width > x) segs.push({ x0: x, x1: width });
+      return segs;
+    }
+    const height = subBoards.length ? Math.max(...subBoards.map(s => s.binBottom)) : binBottom;
 
     const hasZones = !!settings.signs;
     const hasCategories = walls.size > 0;
@@ -324,6 +430,7 @@
 
     return {
       n, rows, width, height, binTop, binBottom, lastRowY,
+      slots, slotAt, isPooled, subBoards, subBoardBySlot, subBoardAt, floorSegments,
       hasZones, hasCategories, walls,
       zoneRow, zoneY, zoneTop: zoneY - cfg.zoneHeight / 2, zoneBottom: zoneY + cfg.zoneHeight / 2,
       categoryRow, categoryY, categoryTop, categoryBandH, categoryBottom: categoryTop + categoryBandH,
