@@ -63,8 +63,11 @@ window.CONFIG = {
   ballFriction: 0.02,
   ballFrictionAir: 0.006,
 
-  // Peg windowing: only pegs within this many columns of a ball get physics bodies
-  pegWindowCols: 16,
+  // Peg windowing: only pegs within this many columns AND rows of a ball get
+  // physics bodies. A ball moves < 2 cells per frame, so a small window is safe
+  // and keeps the body count tiny no matter how many balls are in flight.
+  pegWindowCols: 4,
+  pegWindowRows: 4,
 
   // Landing detection
   restSpeed: 0.25,

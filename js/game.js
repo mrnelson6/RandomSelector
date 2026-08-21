@@ -193,7 +193,7 @@
             ball.tpReadyAt = game.time + cfg.teleportCooldown;
             ball.trail.length = 0;
             ball.teleports = (ball.teleports || 0) + 1;
-            game.board.updatePegWindow(game.balls.filter(b => !b.landed).map(b => b.body.position.x));
+            game.board.updatePegWindow(game.balls.filter(b => !b.landed).map(b => b.body.position));
             sfx('teleport');
           }
         } else if (other.label === 'bouncy') {
@@ -249,7 +249,7 @@
 
       const layout = game.layout;
       const active = game.balls.filter(b => !b.landed);
-      game.board.updatePegWindow(active.map(b => b.body.position.x));
+      game.board.updatePegWindow(active.map(b => b.body.position));
       game.board.updateSpinners(game.time);
 
       for (const ball of active) {

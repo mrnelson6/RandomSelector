@@ -69,9 +69,12 @@
     Composite.add(statics, zoneBodies);
 
     // ---- Peg windowing -------------------------------------------------
-    const loadedCols = new Map(); // col -> [bodies]
-
+    // Bodies exist only for peg cells (row, col) near a ball. Keyed per cell so
+    // the loaded set is a few hundred bodies even with 40 balls scattered
+    // across the board (the broadphase chokes on thousands of same-x pegs).
+    const loaded = new Map(); // cellKey -> body
     const spinners = new Set();
+    const cellKey = (r, c) => r * (layout.n + 2) + c;
 
     function makePegBody(peg) {
       switch (peg.kind) {
@@ -100,23 +103,6 @@
       }
     }
 
-    function pegBodiesForCol(k) {
-      const out = [];
-      for (let r = 0; r < layout.rows; r++) {
-        const count = layout.pegCountInRow(r);
-        const cols = [k];
-        if (k === layout.n - 1 && count === layout.n + 1) cols.push(layout.n); // right-edge peg
-        for (const c of cols) {
-          const peg = layout.pegAt(r, c);
-          if (!peg) continue;
-          const body = makePegBody(peg);
-          if (body.plugin.spin) spinners.add(body);
-          out.push(body);
-        }
-      }
-      return out;
-    }
-
     // Rotate the spinner crosses; the renderer uses the same formula.
     function updateSpinners(time) {
       const speed = cfg.specials.spinner.speed;
@@ -127,29 +113,43 @@
     }
 
     let lastKey = '';
-    function updatePegWindow(xs) {
-      const centers = xs.map(x => layout.binIndexAt(x));
-      const key = centers.join(',');
+    function updatePegWindow(positions) {
+      const cells = positions.map(p => ({
+        c: layout.binIndexAt(p.x),
+        r: Math.floor((p.y - cfg.topPadding) / cfg.rowHeight),
+      }));
+      const key = cells.map(k => k.r + ':' + k.c).join(',');
       if (key === lastKey) return;
       lastKey = key;
+
       const wanted = new Set();
-      for (const c of centers) {
-        for (let k = Math.max(0, c - cfg.pegWindowCols); k <= Math.min(layout.n - 1, c + cfg.pegWindowCols); k++) wanted.add(k);
-      }
-      for (const [k, bodies] of loadedCols) {
-        if (!wanted.has(k)) {
-          for (const b of bodies) spinners.delete(b);
-          Composite.remove(pegs, bodies);
-          loadedCols.delete(k);
+      const wc = cfg.pegWindowCols, wr = cfg.pegWindowRows;
+      for (const { c, r } of cells) {
+        const r0 = Math.max(0, r - wr), r1 = Math.min(layout.rows - 1, r + wr);
+        for (let rr = r0; rr <= r1; rr++) {
+          const count = layout.pegCountInRow(rr);
+          // bin col k is flanked by aligned pegs k and k+1, hence the +1
+          const c0 = Math.max(0, c - wc), c1 = Math.min(count - 1, c + wc + 1);
+          for (let cc = c0; cc <= c1; cc++) wanted.add(cellKey(rr, cc));
         }
       }
+      const toRemove = [];
+      for (const [k, body] of loaded) {
+        if (!wanted.has(k)) { if (body) { toRemove.push(body); spinners.delete(body); } loaded.delete(k); }
+      }
+      if (toRemove.length) Composite.remove(pegs, toRemove);
+      const toAdd = [];
       for (const k of wanted) {
-        if (!loadedCols.has(k)) {
-          const bodies = pegBodiesForCol(k);
-          Composite.add(pegs, bodies);
-          loadedCols.set(k, bodies);
-        }
+        if (loaded.has(k)) continue;
+        const r = Math.floor(k / (layout.n + 2)), c = k % (layout.n + 2);
+        const peg = layout.pegAt(r, c);
+        if (!peg) { loaded.set(k, null); continue; } // remember empty cells too
+        const body = makePegBody(peg);
+        if (body.plugin.spin) spinners.add(body);
+        loaded.set(k, body);
+        toAdd.push(body);
       }
+      if (toAdd.length) Composite.add(pegs, toAdd);
     }
 
     // ---- Balls ---------------------------------------------------------
@@ -164,7 +164,7 @@
       });
       Body.setVelocity(ball, { x: vx, y: vy });
       balls.push(ball);
-      updatePegWindow(balls.map(b => b.position.x));
+      updatePegWindow(balls.map(b => b.position));
       Composite.add(ballsComp, ball);
       return ball;
     }
@@ -174,7 +174,7 @@
       Composite.clear(statics, false, true);
       Composite.clear(pegs, false, true);
       Composite.clear(ballsComp, false, true);
-      loadedCols.clear();
+      loaded.clear();
       spinners.clear();
       balls.length = 0;
     }
