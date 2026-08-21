@@ -8,7 +8,7 @@
     '#ff3864', '#2de2e6', '#f9c80e', '#ff6c11', '#7b61ff', '#3ddc84',
     '#ff85e0', '#00b3ff', '#c3f73a', '#ff9f1c', '#b388ff', '#00e5a8',
   ];
-  const TELEPORT_LETTERS = 'ABCDEFGHJKLM';
+  const TELEPORT_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
   const CATEGORY_COLORS = [
     '#4f8cff', '#ff7a59', '#3ddc84', '#c77dff', '#ffd166',
@@ -112,8 +112,12 @@
       }
       const pool = rng.shuffle(cands);
       const minApart = cfg.teleportMinBinsApart;
+      let totalPegs = 0;
+      for (let r = 0; r < rows; r++) if (rowHasPegs(r)) totalPegs += pegCountInRow(r);
+      const pairsWanted = Math.min(cfg.teleportMaxPairs, Math.max(cfg.teleportMinPairs,
+        Math.round(totalPegs / 1000 * cfg.teleportPairsPer1000Pegs)));
       let pi = 0;
-      for (let pair = 0; pair < cfg.teleportPairs && pi < pool.length; pair++) {
+      for (let pair = 0; pair < pairsWanted && pi < pool.length; pair++) {
         let a = null, b = null;
         while (pi < pool.length && !a) { const p = pool[pi++]; if (!specials.has(key(p.r, p.c)) && !crowded(p.r, p.c)) a = p; }
         if (!a) break;

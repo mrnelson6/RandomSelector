@@ -22,7 +22,7 @@ can watch the randomness happen. Built for drawing scoring-rule modifications fo
    can occasionally slip into the neighbouring lane.
 4. **The bins** at the bottom, one per option, shuffled every drop (within their bucket).
 
-Sprinkled through the peg field (about 1 in 22 pegs, placed by the seed) are **special pegs**:
+Sprinkled through the peg field (about 1 in 9 pegs, placed by the seed) are **special pegs**:
 
 | Peg | Look | Effect |
 |---|---|---|
@@ -30,7 +30,7 @@ Sprinkled through the peg field (about 1 in 22 pegs, placed by the seed) are **s
 | Boulder | big grey disc | a wide deflector |
 | Spinner | cyan rotating cross | bats the ball sideways |
 | Flip peg | half green / half red `±` | inverts the ball's sign (only placed below the +/− band) |
-| Teleporter | coloured dashed ring with a letter | 12 pairs per board; enter one, drop out of its partner (same colour + letter), anywhere on the board |
+| Teleporter | coloured dashed ring with a letter | pairs scale with board size (9 on the short board, 22 on the default); enter one, drop out of its partner (same colour + letter), anywhere on the board |
 
 The category walls carry large round **bumps** on alternating rows — about a third of them are
 super-bouncy **wall bumpers** that blast the ball back into the lane — and the pegs next to a wall

@@ -18,16 +18,21 @@ window.CONFIG = {
   wallGapRows: 2,        // height of an opening in a category wall, in peg rows
   wallGapEvery: [5, 10], // rows between openings (random in this range)
 
-  // Special pegs sprinkled across the board (seeded per run)
-  specialPegFraction: 0.09,
+  // Special pegs sprinkled across the board (seeded per run). This is the pick
+  // probability per peg; the no-neighbours rule discards some, so the realised
+  // density is roughly 0.4x this (0.28 -> about 11% of pegs are special).
+  specialPegFraction: 0.28,
   specials: {
     bouncy:  { weight: 0.4, radius: 10, restitution: 1.6, kick: 32 }, // fires the ball away at `kick` px/step on contact
     big:     { weight: 0.25, radius: 20 },                    // boulder
     spinner: { weight: 0.15, arm: 24, thickness: 6, speed: 2.6 }, // rotating cross, rad/s
     flip:    { weight: 0.2, radius: 11 },                     // inverts the ball's +/- sign (only below the zone band)
   },
-  // Teleporter pairs (portals), placed below the zone band; touching one drops you out of its partner
-  teleportPairs: 12,
+  // Teleporter pairs (portals), placed below the zone band; touching one drops you out of its partner.
+  // The count scales with board area: pairs = pegs / 1000 * teleportPairsPer1000Pegs (clamped).
+  teleportPairsPer1000Pegs: 1.6,
+  teleportMinPairs: 4,
+  teleportMaxPairs: 24,
   teleportRadius: 15,
   teleportMinBinsApart: 10,
   teleportCooldown: 0.7,  // seconds before the same ball can teleport again
