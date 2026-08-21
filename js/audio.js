@@ -113,6 +113,18 @@
         [N.C5, N.E5, N.G5, N.C6, N.E6].forEach((f, i) =>
           tone({ type: 'triangle', freq: f, dur: i === 4 ? 0.6 : 0.18, gain: 0.35, at: 0.25 + i * 0.1 }));
       },
+      // sign flipped by a ± peg: quick two-note wobble, direction by new sign
+      flip: ({ sign = '+' } = {}) => {
+        const [a, b] = sign === '+' ? [N.E5, N.C6] : [N.C6, N.E5];
+        tone({ type: 'square', freq: a, to: b, dur: 0.18, gain: 0.2 });
+        tone({ type: 'triangle', freq: b, dur: 0.2, gain: 0.25, at: 0.12 });
+      },
+      // teleport: sci-fi down-then-up sweep
+      teleport: () => {
+        tone({ type: 'sawtooth', freq: 900, to: 120, dur: 0.22, gain: 0.18 });
+        tone({ type: 'sine', freq: 200, to: 1600, dur: 0.3, gain: 0.3, at: 0.12 });
+        noise({ dur: 0.3, gain: 0.2, filter: 'bandpass', freq: 600, to: 4000, at: 0.1 });
+      },
       click: () => tone({ type: 'square', freq: 700, dur: 0.03, gain: 0.08 }),
     };
 

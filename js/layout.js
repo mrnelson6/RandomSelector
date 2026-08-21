@@ -4,6 +4,12 @@
 (function (global) {
   'use strict';
 
+  const TELEPORT_COLORS = [
+    '#ff3864', '#2de2e6', '#f9c80e', '#ff6c11', '#7b61ff', '#3ddc84',
+    '#ff85e0', '#00b3ff', '#c3f73a', '#ff9f1c', '#b388ff', '#00e5a8',
+  ];
+  const TELEPORT_LETTERS = 'ABCDEFGHJKLM';
+
   const CATEGORY_COLORS = [
     '#4f8cff', '#ff7a59', '#3ddc84', '#c77dff', '#ffd166',
     '#06d6a0', '#ef476f', '#48cae4', '#f4a261', '#b5e48c',
@@ -78,13 +84,59 @@
     function nearWall(c) { return walls.has(c) || walls.has(c + 1) || walls.has(c - 1); }
 
     // ---- Per-run randomness: special pegs, wall openings, wall bumper kinds ----
-    const specials = new Map();   // key(r, c) -> { kind, phase, dir }
+    const specials = new Map();   // key(r, c) -> { kind, phase, dir, pair? }
     const wallGaps = new Map();   // wall col -> Set of rows where the wall is open
     const wallBouncy = new Set(); // key(r, col) of wall bumps that are super-bouncy
+    const teleporters = [];       // [{ color, letter, ends: [{r, c, x, y}, {r, c, x, y}] }]
     const key = (r, c) => r * (n + 2) + c;
+    // First row where a ball is guaranteed to have its sign
+    const belowBandRow = hasZones ? zoneRow + 2 : 2;
+
+    function crowded(r, c) {
+      for (let dr = -1; dr <= 1; dr++)
+        for (let dc = -1; dc <= 1; dc++)
+          if ((dr || dc) && specials.has(key(r + dr, c + dc))) return true;
+      return false;
+    }
+
+    function assignTeleporters(rng) {
+      teleporters.length = 0;
+      const cands = [];
+      for (let r = belowBandRow; r < rows - 3; r++) {
+        if (!rowHasPegs(r) || Math.abs(r - categoryRow) <= 1) continue;
+        const count = pegCountInRow(r);
+        for (let c = 2; c < count - 2; c++) {
+          if (hasCategories && nearWall(c)) continue;
+          cands.push({ r, c });
+        }
+      }
+      const pool = rng.shuffle(cands);
+      const minApart = cfg.teleportMinBinsApart;
+      let pi = 0;
+      for (let pair = 0; pair < cfg.teleportPairs && pi < pool.length; pair++) {
+        let a = null, b = null;
+        while (pi < pool.length && !a) { const p = pool[pi++]; if (!specials.has(key(p.r, p.c)) && !crowded(p.r, p.c)) a = p; }
+        if (!a) break;
+        specials.set(key(a.r, a.c), { kind: 'teleport', pair });
+        for (let j = pi; j < pool.length && !b; j++) {
+          const p = pool[j];
+          if (Math.abs(p.c - a.c) < minApart || specials.has(key(p.r, p.c)) || crowded(p.r, p.c)) continue;
+          b = p;
+        }
+        if (!b) { specials.delete(key(a.r, a.c)); break; }
+        specials.set(key(b.r, b.c), { kind: 'teleport', pair });
+        const mk = p => ({ r: p.r, c: p.c, x: rowOffset(p.r) + p.c * w, y: rowY(p.r) });
+        teleporters.push({
+          pair, color: TELEPORT_COLORS[pair % TELEPORT_COLORS.length],
+          letter: TELEPORT_LETTERS[pair % TELEPORT_LETTERS.length],
+          ends: [mk(a), mk(b)],
+        });
+      }
+    }
 
     function randomize(rng) {
       assignSpecials(rng);
+      assignTeleporters(rng);
       wallGaps.clear();
       wallBouncy.clear();
       if (!hasCategories) return;
@@ -145,12 +197,10 @@
           if (rng.next() >= cfg.specialPegFraction) continue;
           if (hasCategories && nearWall(c)) continue;
           // Keep specials apart so their larger radii can't form a trap together.
-          let crowded = false;
-          for (let dr = -1; dr <= 1 && !crowded; dr++)
-            for (let dc = -1; dc <= 1; dc++)
-              if ((dr || dc) && specials.has(key(r + dr, c + dc))) { crowded = true; break; }
-          if (crowded) continue;
-          specials.set(key(r, c), { kind: pick(), phase: rng.range(0, Math.PI * 2), dir: rng.bool() ? 1 : -1 });
+          if (crowded(r, c)) continue;
+          let kind = pick();
+          if (kind === 'flip' && r < belowBandRow) kind = 'bouncy'; // flips only where the ball already has a sign
+          specials.set(key(r, c), { kind, phase: rng.range(0, Math.PI * 2), dir: rng.bool() ? 1 : -1 });
         }
       }
       return specials.size;
@@ -180,6 +230,11 @@
       }
       const sp = specials.get(key(r, c));
       if (sp) {
+        if (sp.kind === 'teleport') {
+          const tp = teleporters[sp.pair];
+          const partner = tp.ends[0].r === r && tp.ends[0].c === c ? tp.ends[1] : tp.ends[0];
+          return { x, y, r: cfg.teleportRadius, kind: 'teleport', pair: sp.pair, color: tp.color, letter: tp.letter, partner };
+        }
         const def = cfg.specials[sp.kind];
         return { x, y, r: def.radius || def.arm, kind: sp.kind, phase: sp.phase, dir: sp.dir };
       }
@@ -269,10 +324,10 @@
       zoneRow, zoneY, zoneTop: zoneY - cfg.zoneHeight / 2, zoneBottom: zoneY + cfg.zoneHeight / 2,
       categoryRow, categoryY, categoryTop, categoryBandH, categoryBottom: categoryTop + categoryBandH,
       bumpers, bumpersIn,
-      rowOffset, rowY, rowHasPegs, pegExists, pegAt, randomize, assignSpecials, specials, wallSegments, wallOpenAt, pegCountInRow, pegX, pegColRange, rowRange,
+      rowOffset, rowY, rowHasPegs, pegExists, pegAt, randomize, assignSpecials, specials, teleporters, wallSegments, wallOpenAt, pegCountInRow, pegX, pegColRange, rowRange,
       binIndexAt, binRect, makeZones, zoneAt, categoryAt, launchPoint, launchShot, muzzle,
     };
   }
 
-  global.Layout = { build, arrange, CATEGORY_COLORS };
+  global.Layout = { build, arrange, CATEGORY_COLORS, TELEPORT_COLORS };
 })(window);

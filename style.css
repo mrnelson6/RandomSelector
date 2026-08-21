@@ -75,6 +75,20 @@ code {
 }
 #hud > * { pointer-events: auto; }
 .hud-left { display: flex; gap: 8px; flex-wrap: wrap; }
+.hud-center { display: flex; justify-content: center; }
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--text);
+  background: rgba(15, 17, 23, 0.8);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 6px 14px 6px 8px;
+  backdrop-filter: blur(4px);
+}
+.brand img { border-radius: 8px; display: block; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-name { font-weight: 800; letter-spacing: 0.02em; }
+.brand-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .hud-right {
   text-align: right; font-size: 13px; color: var(--muted);
   background: rgba(15, 17, 23, 0.8);
@@ -167,6 +181,7 @@ code {
 
 @media (max-width: 640px) {
   .hud-right { display: none; }
+  .brand-text { display: none; }
 }
 
 /* Settings grid */

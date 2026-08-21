@@ -21,10 +21,16 @@ window.CONFIG = {
   // Special pegs sprinkled across the board (seeded per run)
   specialPegFraction: 0.09,
   specials: {
-    bouncy:  { weight: 0.5, radius: 10, restitution: 1.6, kick: 32 }, // fires the ball away at `kick` px/step on contact
-    big:     { weight: 0.3, radius: 20 },                     // boulder
-    spinner: { weight: 0.2, arm: 24, thickness: 6, speed: 2.6 }, // rotating cross, rad/s
+    bouncy:  { weight: 0.4, radius: 10, restitution: 1.6, kick: 32 }, // fires the ball away at `kick` px/step on contact
+    big:     { weight: 0.25, radius: 20 },                    // boulder
+    spinner: { weight: 0.15, arm: 24, thickness: 6, speed: 2.6 }, // rotating cross, rad/s
+    flip:    { weight: 0.2, radius: 11 },                     // inverts the ball's +/- sign (only below the zone band)
   },
+  // Teleporter pairs (portals), placed below the zone band; touching one drops you out of its partner
+  teleportPairs: 12,
+  teleportRadius: 15,
+  teleportMinBinsApart: 10,
+  teleportCooldown: 0.7,  // seconds before the same ball can teleport again
 
   // Launch area (above the first peg row)
   topPadding: 760,       // height of the launch area

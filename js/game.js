@@ -170,6 +170,32 @@
           // through a different zone takes that zone's sign.
           const ball = game.balls.find(b => b.body === ballBody);
           if (ball) captureSign(ball, game.layout.zoneAt(game.zones, ballBody.position.x));
+        } else if (other.label === 'flip') {
+          const ball = game.balls.find(b => b.body === ballBody);
+          if (ball && ball.sign) {
+            ball.sign = ball.sign === '+' ? '-' : '+';
+            ball.signAt = game.time;
+            ball.signFlips = (ball.signFlips || 0) + 1;
+            game.pegFlashes.set(other.position.x + ',' + other.position.y, game.time);
+            sfx('flip', { sign: ball.sign });
+            onSign && onSign(ball.sign, null, ball);
+          }
+        } else if (other.label === 'teleport') {
+          const ball = game.balls.find(b => b.body === ballBody);
+          if (ball && game.time >= (ball.tpReadyAt || 0)) {
+            const tp = other.plugin.tp;
+            const exitY = tp.partner.y + cfg.teleportRadius + cfg.ballRadius + 4;
+            game.pegFlashes.set(other.position.x + ',' + other.position.y, game.time);
+            game.pegFlashes.set(tp.partner.x + ',' + tp.partner.y, game.time);
+            Body.setPosition(ballBody, { x: tp.partner.x, y: exitY });
+            // keep the ball moving downward out of the exit portal
+            Body.setVelocity(ballBody, { x: ballBody.velocity.x * 0.5, y: Math.max(2, Math.abs(ballBody.velocity.y)) });
+            ball.tpReadyAt = game.time + cfg.teleportCooldown;
+            ball.trail.length = 0;
+            ball.teleports = (ball.teleports || 0) + 1;
+            game.board.updatePegWindow(game.balls.filter(b => !b.landed).map(b => b.body.position.x));
+            sfx('teleport');
+          }
         } else if (other.label === 'bouncy') {
           // Super-bouncy peg: fire the ball straight away from the peg centre,
           // much faster than it arrived.

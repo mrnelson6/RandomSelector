@@ -87,6 +87,14 @@
         }
         case 'bump':
           return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: 'bump', restitution: 0.8, friction: 0 });
+        case 'flip':
+          return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: 'flip', restitution: 0.5 });
+        case 'teleport': {
+          // A sensor: the ball passes into the portal and is moved to the partner.
+          const body = Bodies.circle(peg.x, peg.y, peg.r, { isStatic: true, isSensor: true, label: 'teleport' });
+          body.plugin.tp = { pair: peg.pair, partner: peg.partner, color: peg.color };
+          return body;
+        }
         default:
           return Bodies.circle(peg.x, peg.y, peg.r, { ...staticOpts, label: peg.kind, restitution: 0.4 });
       }

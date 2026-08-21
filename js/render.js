@@ -77,6 +77,7 @@
     }
 
     const PEG_STYLE = {
+      flip:   { fill: '#ffffff', ring: null },
       bouncy: { fill: '#ff4fd8', ring: 'rgba(255, 79, 216, 0.35)' },
       big:    { fill: '#5d6684', ring: '#8a92ad' },
       bump:   { fill: '#aab2cc', ring: null },
@@ -110,6 +111,50 @@
       const spin = cfg.specials.spinner;
       for (const peg of specials) {
         const style = PEG_STYLE[peg.kind] || PEG_STYLE.big;
+        const hitAgo = pegFlashes ? time - (pegFlashes.get(peg.x + ',' + peg.y) ?? -1e9) : 1e9;
+        if (peg.kind === 'flip') {
+          // half green / half red with a ± glyph
+          const radius = Math.max(peg.r, minR);
+          const hit = hitAgo < 0.4 ? 1 + (1 - hitAgo / 0.4) * 0.6 : 1;
+          ctx.fillStyle = COLORS.plus;
+          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius * hit, Math.PI / 2, Math.PI * 1.5); ctx.fill();
+          ctx.fillStyle = COLORS.minus;
+          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius * hit, -Math.PI / 2, Math.PI / 2); ctx.fill();
+          if (zoom > 0.3) {
+            ctx.fillStyle = '#0f1117';
+            ctx.font = `900 ${radius * 1.5}px system-ui, sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('±', peg.x, peg.y + 1);
+          }
+          continue;
+        }
+        if (peg.kind === 'teleport') {
+          const radius = Math.max(peg.r, minR);
+          const active = hitAgo < 0.6;
+          // swirling dashed ring in the pair colour
+          ctx.save();
+          ctx.translate(peg.x, peg.y);
+          ctx.rotate(time * (active ? 9 : 1.5) * (peg.pair % 2 ? -1 : 1));
+          ctx.strokeStyle = peg.color;
+          ctx.lineWidth = active ? 6 : 4;
+          ctx.setLineDash([radius * 0.9, radius * 0.5]);
+          ctx.beginPath(); ctx.arc(0, 0, radius + 4 + (active ? (1 - hitAgo / 0.6) * 10 : 0), 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+          ctx.fillStyle = '#0b0d14';
+          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = peg.color;
+          ctx.globalAlpha = 0.35 + 0.25 * Math.sin(time * 4 + peg.pair);
+          ctx.beginPath(); ctx.arc(peg.x, peg.y, radius * 0.8, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          if (zoom > 0.3) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `900 ${radius * 1.3}px system-ui, sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(peg.letter, peg.x, peg.y + 1);
+          }
+          continue;
+        }
         if (peg.kind === 'spinner') {
           ctx.save();
           ctx.translate(peg.x, peg.y);
@@ -122,7 +167,6 @@
           continue;
         }
         let radius = Math.max(peg.r, minR);
-        const hitAgo = pegFlashes ? time - (pegFlashes.get(peg.x + ',' + peg.y) ?? -1e9) : 1e9;
         if (peg.kind === 'bouncy' && zoom > 0.2) {
           // pulsing halo, blown up briefly when the peg fires
           const burst = hitAgo < 0.4 ? (1 - hitAgo / 0.4) * 4 : 0;
